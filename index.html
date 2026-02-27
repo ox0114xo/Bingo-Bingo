@@ -3,180 +3,194 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bingo Bingo 尊榮終端</title>
+    <title>Bingo Bingo 尊榮數據終端</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background: #020617; color: #F8FAFC; font-family: 'PingFang TC', sans-serif; }
+        body { background: #0F172A; color: #F1F5F9; font-family: -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
         .tc-gold { color: #FACC15; }
-        .bg-gold { background: linear-gradient(135deg, #FACC15 0%, #EAB308 100%); }
-        .card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); }
-        .num-btn.selected { background: #EF4444; border-color: #FACC15; box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); transform: translateY(-2px); }
-        .ball { aspect-ratio: 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 900; background: #0F172A; color: #FACC15; border: 1px solid #334155; }
-        .nav-active { color: #FACC15; border-bottom: 3px solid #FACC15; }
+        .bg-gold { background: linear-gradient(135deg, #FACC15 0%, #EAB308 100%); color: #000; }
+        .card { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); border-radius: 20px; }
+        .num-btn { aspect-ratio: 1; border-radius: 10px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.85rem; border: 1px solid transparent; }
+        .num-btn.selected { background: #EF4444; border-color: #FACC15; box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+        .ball { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 900; background: #334155; color: #FACC15; border: 1px solid #475569; }
+        .nav-active { color: #FACC15; border-bottom: 3px solid #FACC15; font-weight: 900; }
+        input, select { background: rgba(0,0,0,0.3) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: white !important; }
     </style>
 </head>
 <body class="pb-10">
 
-    <nav class="sticky top-0 z-50 bg-[#020617]/90 backdrop-blur border-b border-white/5 shadow-2xl">
-        <div class="flex justify-around p-3 text-xs font-black tracking-tighter text-gray-400">
+    <nav class="sticky top-0 z-50 bg-[#0F172A]/90 backdrop-blur border-b border-white/5">
+        <div class="flex justify-around p-3 text-xs font-bold text-gray-400">
             <button onclick="show('bet')" id="t-bet" class="nav-active pb-1">投注對獎</button>
             <button onclick="show('hist')" id="t-hist" class="pb-1">開獎紀錄</button>
-            <button onclick="show('stats')" id="t-stats" class="pb-1">冷熱遺漏</button>
+            <button onclick="show('stats')" id="t-stats" class="pb-1">數據冷熱</button>
         </div>
-        <div class="bg-gradient-to-r from-red-700 to-red-600 px-4 py-1.5 flex justify-between items-center text-white">
-            <span class="text-[10px] font-bold">NEXT DRAW IN</span>
-            <span id="timer" class="text-2xl font-black font-mono">00:00</span>
+        <div class="bg-red-600 px-4 py-1 flex justify-between items-center text-white">
+            <span id="bonus-on" class="hidden text-[10px] font-black animate-pulse">💰 春節加碼中</span>
+            <span class="text-[10px] font-bold">NEXT DRAW: <span id="timer" class="text-xl ml-2">--:--</span></span>
         </div>
     </nav>
 
-    <div class="max-w-md mx-auto p-4 space-y-5">
-        
+    <div class="max-w-md mx-auto p-4 space-y-6">
+
         <section id="sec-bet" class="space-y-4">
-            <div class="card p-5 rounded-3xl space-y-6 shadow-xl">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-xl font-black italic">BETTING HUB</h2>
-                    <div id="bonus-tag" class="hidden bg-gold text-black text-[10px] px-2 py-0.5 rounded-full font-black animate-bounce">春節加碼中</div>
+            <div class="card p-5 space-y-6">
+                <div class="grid grid-cols-3 gap-1 bg-black/40 p-1 rounded-xl">
+                    <button onclick="setMode('star')" id="m-star" class="py-2 text-xs font-bold rounded-lg bg-white/10">星號</button>
+                    <button onclick="setMode('bs')" id="m-bs" class="py-2 text-xs font-bold rounded-lg text-gray-500">大小</button>
+                    <button onclick="setMode('oe')" id="m-oe" class="py-2 text-xs font-bold rounded-lg text-gray-500">單雙</button>
                 </div>
 
-                <div class="space-y-3 bg-black/30 p-4 rounded-2xl border border-white/5">
-                    <div class="flex justify-between text-[10px] font-bold text-gray-500">
-                        <span>AUTOMATIC DETECTION</span>
-                        <span id="detect-time" class="text-blue-400">偵測時間: --:--</span>
+                <div class="grid grid-cols-2 gap-3 p-4 bg-black/30 rounded-2xl border border-white/5">
+                    <div class="space-y-1">
+                        <label class="text-[10px] text-gray-500 font-bold">開獎期數</label>
+                        <input type="text" id="start-p" oninput="syncByP(this.value)" class="w-full rounded-lg p-2 text-lg font-black text-yellow-400 text-center">
                     </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="text" id="start-p" oninput="autoDetect(this.value)" class="bg-white/5 border border-white/10 rounded-xl p-3 text-lg font-black text-center text-yellow-400" placeholder="輸入期數">
-                        <div class="flex flex-col justify-center">
-                            <button onclick="setNextDraw()" class="text-[10px] bg-white/10 py-2 rounded-lg font-bold hover:bg-white/20 transition">預設下一期</button>
-                        </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] text-gray-500 font-bold">開獎時間</label>
+                        <input type="time" id="start-t" oninput="syncByT(this.value)" class="w-full rounded-lg p-2 text-lg font-black text-center">
                     </div>
+                    <button onclick="setNext()" class="col-span-2 text-[10px] bg-white/5 py-2 rounded-lg font-bold border border-white/10">預設下一期開獎</button>
                 </div>
 
-                <div class="grid grid-cols-8 gap-1.5" id="num-grid"></div>
+                <div id="picker-star" class="space-y-3">
+                    <div class="flex justify-between text-[10px] font-black text-gray-400"><span>1-80 選號區</span><span id="sel-info" class="text-red-400">已選 0 個</span></div>
+                    <div id="num-grid" class="grid grid-cols-8 gap-1.5"></div>
+                </div>
+
+                <div id="picker-other" class="hidden grid grid-cols-2 gap-2">
+                    <button onclick="pickOpt('大')" class="opt py-4 border border-white/10 rounded-xl font-bold">大</button>
+                    <button onclick="pickOpt('小')" class="opt py-4 border border-white/10 rounded-xl font-bold">小</button>
+                </div>
 
                 <div class="grid grid-cols-3 gap-2">
-                    <select id="stars" class="bg-white/5 border border-white/10 rounded-xl p-3 text-xs font-bold text-center"><option value="3" selected>3星</option><option value="4">4星</option><option value="5">5星</option><option value="6">6星</option><option value="10">10星</option></select>
-                    <input type="number" id="mult" value="4" class="bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-center font-bold" placeholder="倍數">
-                    <input type="number" id="cons" value="10" class="bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-center font-bold" placeholder="期數">
+                    <div class="space-y-1"><label class="text-[10px] font-bold text-gray-500">玩法</label>
+                        <select id="stars" class="w-full rounded-lg p-3 text-xs font-bold text-yellow-500"><option value="3">3星</option><option value="4">4星</option><option value="5">5星</option><option value="10">10星</option></select>
+                    </div>
+                    <div class="space-y-1"><label class="text-[10px] font-bold text-gray-500">倍數</label><input type="number" id="mult" value="4" class="w-full rounded-lg p-3 text-xs text-center font-bold"></div>
+                    <div class="space-y-1"><label class="text-[10px] font-bold text-gray-500">連續期數</label><input type="number" id="cons" value="10" class="w-full rounded-lg p-3 text-xs text-center font-bold"></div>
                 </div>
 
-                <button onclick="runCheck()" class="w-full py-5 rounded-2xl bg-gold text-black font-black text-xl shadow-lg active:scale-95 transition">🎯 立即對獎</button>
+                <button onclick="doCheck()" class="w-full py-5 rounded-2xl bg-gold font-black text-xl shadow-lg active:scale-95 transition">🎯 開始對獎</button>
             </div>
-            <div id="res-box" class="hidden card rounded-2xl p-5 border-l-8 border-yellow-500"></div>
+            <div id="res-box" class="hidden card p-5 border-l-8 border-yellow-500"></div>
         </section>
 
         <section id="sec-hist" class="hidden space-y-4">
-            <h3 class="text-[10px] font-black text-gray-500 tracking-widest text-center">--- LATEST RESULTS ---</h3>
+            <div class="flex justify-between items-center px-2">
+                <h3 class="text-xs font-black text-gray-500">LATEST RESULTS</h3>
+                <input type="date" id="hist-date" onchange="filterHist(this.value)" class="text-[10px] p-1 rounded-md">
+            </div>
             <div id="history-list" class="space-y-4"></div>
         </section>
 
-        <section id="sec-stats" class="hidden space-y-4">
-            <div class="card p-5 rounded-2xl"><h3 class="font-bold text-orange-400 mb-4 text-center">⌛ 號碼遺漏排行榜</h3><div id="gap-list" class="grid grid-cols-5 gap-2"></div></div>
+        <section id="sec-stats" class="hidden space-y-4 text-center">
+            <div class="card p-5 space-y-4">
+                <h3 class="font-black text-orange-400 italic">DATA INTELLIGENCE</h3>
+                <div class="flex gap-2 justify-center mb-4">
+                    <button onclick="sortStats('gap')" class="text-[10px] bg-white/10 px-3 py-1 rounded-full border border-white/10">按遺漏排序</button>
+                    <button onclick="sortStats('hot')" class="text-[10px] bg-white/10 px-3 py-1 rounded-full border border-white/10">按熱度排序</button>
+                </div>
+                <div id="stats-board" class="grid grid-cols-4 gap-2"></div>
+            </div>
         </section>
     </div>
 
     <script>
         const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7ZS9Nt-Y0kMHr_6lNy5FcMeYRn1_MVkmN_E3SuFDSxm7QkVT76NmeLkCWJNrR24U8XVtdTtn8IQc3/pub?gid=1857522434&single=true&output=csv";
         const ANCHOR_P = 115011765;
-        const BONUS_RANGE = [115011572, 115012586]; // 115年春節加碼
-        
-        let db = []; let sel = [];
+        let db = []; let sel = []; let mode = 'star'; let curOpt = null;
 
         function init() {
             const g = document.getElementById('num-grid');
             for(let i=1; i<=80; i++) {
-                let b = document.createElement('button');
-                b.innerText = String(i).padStart(2,'0'); b.className = "num-btn bg-white/5 text-gray-400";
+                let b = document.createElement('button'); b.innerText = String(i).padStart(2,'0'); b.className = "num-btn";
                 b.onclick = () => {
                     const lim = parseInt(document.getElementById('stars').value);
                     if(sel.includes(i)) { sel = sel.filter(x=>x!==i); b.classList.remove('selected'); }
                     else if(sel.length < lim) { sel.push(i); b.classList.add('selected'); }
+                    document.getElementById('sel-info').innerText = `已選 ${sel.length} / ${lim}`;
                 }; g.appendChild(b);
             }
             refresh(); setInterval(timer, 1000);
         }
 
-        // 🌟 智慧自動偵測功能
-        function autoDetect(val) {
-            if(val.length >= 9) {
-                let p = parseInt(val);
-                let diff = (p - ANCHOR_P) * 5;
-                let d = new Date(2026, 1, 27, 23, 10); // 校準基準
-                d.setMinutes(d.getMinutes() + diff);
-                let timeStr = ("0"+d.getHours()).slice(-2) + ":" + ("0"+d.getMinutes()).slice(-2);
-                let dateStr = (d.getMonth()+1) + "/" + d.getDate();
-                document.getElementById('detect-time').innerText = `偵測: ${dateStr} ${timeStr}`;
-            }
+        function syncByP(p) {
+            if(p.length < 9) return;
+            let d = new Date(2026, 1, 27, 23, 10);
+            d.setMinutes(d.getMinutes() + (parseInt(p) - ANCHOR_P) * 5);
+            document.getElementById('start-t').value = ("0"+d.getHours()).slice(-2) + ":" + ("0"+d.getMinutes()).slice(-2);
         }
 
-        // 🌟 預設下一期開獎期數
-        function setNextDraw() {
+        function syncByT(t) {
+            let [h, m] = t.split(':').map(Number);
+            let now = new Date(); now.setHours(h, m, 0, 0);
+            let anchor = new Date(2026, 1, 27, 23, 10);
+            let diff = Math.round((now - anchor) / (5 * 60 * 1000));
+            document.getElementById('start-p').value = ANCHOR_P + diff;
+        }
+
+        function setNext() {
             let now = new Date();
-            let anchorDate = new Date(2026, 1, 27, 23, 10);
-            let diffMs = now - anchorDate;
-            let diffPeriods = Math.ceil(diffMs / (5 * 60 * 1000));
-            let nextP = ANCHOR_P + diffPeriods;
-            document.getElementById('start-p').value = nextP;
-            autoDetect(String(nextP));
+            let anchor = new Date(2026, 1, 27, 23, 10);
+            let diff = Math.ceil((now - anchor) / (5 * 60 * 1000));
+            let p = ANCHOR_P + diff;
+            document.getElementById('start-p').value = p;
+            syncByP(String(p));
         }
 
         async function refresh() {
             try {
                 const r = await fetch(CSV_URL + "&t=" + Date.now());
-                const rows = (await r.text()).split('\n').filter(l=>l.trim());
-                db = rows.slice(1).map(l => {
-                    let p = l.split(/,(.+)/); let r2 = p[1].split(/,(.+)/); let r3 = r2[1].split(/,(.+)/);
-                    return { id: p[0].trim(), time: r2[0].trim(), nums: r3[0].replace(/"/g,'').split(',').map(n=>parseInt(n)), bonus: parseInt(p[0]) >= BONUS_RANGE[0] && parseInt(p[0]) <= BONUS_RANGE[1] };
-                });
+                const csv = await r.text();
+                // 💎 改進 CSV 解析，確保 20 顆球都被讀取
+                db = csv.split('\n').slice(1).filter(l => l.trim()).map(l => {
+                    const parts = l.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
+                    if(!parts) return null;
+                    const id = parts[0].trim();
+                    const time = parts[1].trim();
+                    const nums = parts[2].replace(/"/g,'').split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+                    const bonus = parts[3] && parts[3].includes("加碼");
+                    return { id, time, nums, bonus };
+                }).filter(x => x && x.nums.length === 20);
+                
                 render();
-                if(!document.getElementById('start-p').value) setNextDraw();
-                document.getElementById('bonus-tag').classList.toggle('hidden', !db[0]?.bonus);
-            } catch (e) {}
+                if(!document.getElementById('start-p').value) setNext();
+                document.getElementById('bonus-on').classList.toggle('hidden', !db[0]?.bonus);
+            } catch (e) { console.error(e); }
         }
 
         function render() {
             let h = '';
-            db.slice(0, 10).forEach(d => {
+            db.slice(0, 15).forEach(d => {
                 let balls = d.nums.map(n => `<div class="ball">${String(n).padStart(2,'0')}</div>`).join('');
-                h += `<div class="card p-3 rounded-2xl border border-white/5">
-                    <div class="flex justify-between text-[10px] mb-2 font-black text-gray-500">
+                h += `<div class="bg-black/20 p-4 rounded-2xl border border-white/5 space-y-3">
+                    <div class="flex justify-between items-center text-[10px] font-black text-gray-500">
                         <span>期數 ${d.id} | 🕒 ${d.time}</span>
-                        ${d.bonus ? '<span class="bg-gold text-black px-1 rounded">加碼期</span>' : ''}
+                        ${d.bonus ? '<span class="bg-gold px-1 rounded text-black text-[8px]">加碼</span>' : ''}
                     </div>
                     <div class="grid grid-cols-10 gap-1">${balls}</div>
                 </div>`;
             });
             document.getElementById('history-list').innerHTML = h;
-            
-            let gaps = {}; for(let i=1; i<=80; i++) gaps[i] = -1;
-            db.forEach((d, idx) => d.nums.forEach(n => { if(gaps[n]===-1) gaps[n]=idx; }));
-            let sorted = Object.keys(gaps).map(n=>({n,v:gaps[n]})).sort((a,b)=>b.v - a.v).slice(0,10);
-            document.getElementById('gap-list').innerHTML = sorted.map(x=>`<div class="bg-white/5 p-2 rounded-xl"><div class="text-[10px] text-gray-500">${String(x.n).padStart(2,'0')}</div><div class="text-xs font-black text-orange-400">${x.v}期</div></div>`).join('');
+            sortStats('hot');
         }
 
-        function runCheck() {
-            const star = parseInt(document.getElementById('stars').value);
-            const mult = parseInt(document.getElementById('mult').value);
-            const count = parseInt(document.getElementById('cons').value);
-            const startP = parseInt(document.getElementById('start-p').value);
-            if(sel.length !== star) return alert(`請選滿 ${star} 個號碼`);
+        function sortStats(type) {
+            let counts = {}; let gaps = {}; for(let i=1; i<=80; i++) { counts[i]=0; gaps[i]=-1; }
+            db.forEach((d, idx) => d.nums.forEach(n => { counts[n]++; if(gaps[n] === -1) gaps[n] = idx; }));
             
-            // 官方加碼獎金邏輯
-            const PRIZES = { 1:{1:50}, 2:{2:75}, 3:{3:500,2:50}, 4:{4:1000,3:100,2:25}, 5:{5:7500,4:500,3:50}, 6:{6:25000,5:1000,4:200,3:25}, 10:{10:5000000,9:250000,8:25000,7:2500,6:250,5:25,0:25} };
-            const BONUS = { 1:{1:75}, 2:{2:150}, 3:{3:1000,2:50}, 4:{4:2000,3:150,2:25}, 5:{5:10000,4:600,3:50}, 6:{6:50000,5:1200,4:200,3:25}, 10:{10:5000000,9:250000,8:25000,7:2500,6:250,5:25,0:25} };
+            let arr = Object.keys(counts).map(n => ({ n, hot: counts[n], gap: gaps[n] }));
+            if(type === 'gap') arr.sort((a,b) => b.gap - a.gap);
+            else arr.sort((a,b) => b.hot - a.hot);
 
-            let totalWin = 0; let log = '';
-            for(let i=0; i<count; i++) {
-                let id = String(startP + i); let d = db.find(x => x.id === id);
-                if(d) {
-                    let m = sel.filter(n => d.nums.includes(n)).length;
-                    let table = d.bonus ? BONUS[star] : PRIZES[star];
-                    let win = (table[m] || (star === 10 && m === 0 ? 25 : 0)) * mult;
-                    totalWin += win;
-                    log += `<div class="flex justify-between p-2 border-b border-white/5 ${win > 0 ? 'text-yellow-400 font-bold' : 'text-gray-500'}"><span>${id}期 (中${m})</span><span>$${win}</span></div>`;
-                }
-            }
-            const res = document.getElementById('res-box'); res.classList.remove('hidden');
-            res.innerHTML = `<h4 class="font-black text-xl flex justify-between">總獎金 <span class="text-yellow-400">$${totalWin}</span></h4><div class="mt-3 space-y-1">${log}</div>`;
+            document.getElementById('stats-board').innerHTML = arr.slice(0, 20).map(x => `
+                <div class="p-2 bg-white/5 rounded-xl border border-white/5">
+                    <div class="text-[10px] text-yellow-500 font-black">${String(x.n).padStart(2,'0')}</div>
+                    <div class="text-[9px] text-gray-400">遺漏: ${x.gap}期</div>
+                    <div class="text-[9px] text-red-400">開獎: ${x.hot}次</div>
+                </div>
+            `).join('');
         }
 
         function timer() {
@@ -190,8 +204,16 @@
                 document.getElementById(`t-${x}`).classList.toggle('nav-active', x === id);
             });
         }
+        function setMode(m) {
+            mode = m;
+            document.getElementById('picker-star').classList.toggle('hidden', m !== 'star');
+            document.getElementById('picker-other').classList.toggle('hidden', m === 'star');
+            document.querySelectorAll('#m-star, #m-bs, #m-oe').forEach(b => {
+                b.classList.remove('bg-white/10','text-white'); b.classList.add('text-gray-500');
+            });
+            document.getElementById(`m-${m}`).classList.add('bg-white/10','text-white');
+        }
         window.onload = init;
     </script>
 </body>
 </html>
-
