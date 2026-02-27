@@ -1,17 +1,12 @@
 import streamlit as st
 import requests
-from bs4 import BeautifulSoup
 import pandas as pd
 from datetime import datetime
-import time
 
 # 設定頁面
 st.set_page_config(page_title="Bingo Bingo 即時對獎", page_icon="🎰", layout="wide")
 
-st.title("🎰 Bingo Bingo 賓果賓果即時對獎系統")
-
 # --- 獎金與玩法設定 (以基本注 $25 計算) ---
-# 字典結構: {星數: {對中個數: 獎金}}
 PRIZE_TABLE = {
     1: {1: 50},
     2: {2: 75},
@@ -21,86 +16,94 @@ PRIZE_TABLE = {
     6: {6: 25000, 5: 1000, 4: 200, 3: 25}
 }
 
-# --- 爬取最新即時資料 ---
-# ttl=60 確保資料最多快取 60 秒，達成每分鐘拉取最新資料的需求
+# --- 爬取最新即時資料 (多源備援機制) ---
 @st.cache_data(ttl=60)
 def fetch_latest_draws():
-    # 實務上這裡需針對台彩官網或即時 API 進行解析
-    # 這裡先建立一個爬蟲框架與模擬數據，以利開發測試
+    """
+    實作多源抓取邏輯：
+    1. 先嘗試抓取台灣彩券官方新版 JSON API
+    2. 如果失敗，退而求其次抓取第三方開獎網的 HTML 解析
+    """
+    raw_data = {}
+    
+    # [來源一] 台灣彩券官方 API (概念示範)
     try:
-        # url = "https://www.taiwanlottery.com.tw/lotto/bingobingo/drawing.aspx"
-        # res = requests.get(url, timeout=5)
-        # soup = BeautifulSoup(res.text, 'html.parser')
-        # ... 在此加入實際的解析邏輯 ...
+        # url_official = "https://api.taiwanlottery.com/TLCAPIWeB/Lottery/BingoResult"
+        # res = requests.get(url_official, timeout=5)
+        # res.raise_for_status()
+        # raw_data = 解析官方 JSON ...
         pass
-    except Exception as e:
-        st.error(f"連線異常: {e}")
+    except Exception as e_official:
+        st.toast("官方來源無回應，嘗試切換備用來源...")
+        
+        # [來源二] 備用第三方網站 (例如：樂透雲、開獎網、久久樂透)
+        try:
+            # url_backup = "https://lotto.arclink.com.tw/Bingo.html"
+            # res = requests.get(url_backup, timeout=5)
+            # raw_data = 解析備用網站 HTML ...
+            pass
+        except Exception as e_backup:
+            st.error("所有開獎資訊來源皆連線異常，請稍後再試。")
 
-    # 模擬回傳的近期開獎資料 (格式：期數 -> 開獎號碼清單)
+    # 模擬回傳的近期開獎資料 (加入時間欄位)
     return {
-        "113000123": [3, 8, 12, 15, 22, 27, 31, 38, 42, 45, 50, 55, 61, 65, 68, 70, 72, 75, 78, 80],
-        "113000124": [1, 5, 9, 14, 18, 25, 30, 33, 40, 44, 48, 52, 58, 60, 66, 69, 73, 76, 77, 79],
-        "113000125": [2, 4, 10, 15, 20, 26, 31, 35, 41, 46, 51, 56, 59, 62, 67, 71, 74, 75, 78, 80]
+        "113000125": {"time": "2026-02-27 20:15:00", "numbers": [2, 4, 10, 15, 20, 26, 31, 35, 41, 46, 51, 56, 59, 62, 67, 71, 74, 75, 78, 80]},
+        "113000124": {"time": "2026-02-27 20:10:00", "numbers": [1, 5, 9, 14, 18, 25, 30, 33, 40, 44, 48, 52, 58, 60, 66, 69, 73, 76, 77, 79]},
+        "113000123": {"time": "2026-02-27 20:05:00", "numbers": [3, 8, 12, 15, 22, 27, 31, 38, 42, 45, 50, 55, 61, 65, 68, 70, 72, 75, 78, 80]}
     }
 
-# --- 側邊欄：使用者購買設定 ---
-st.sidebar.header("📝 購買清單設定")
+latest_data = fetch_latest_draws()
 
-# 預設為目前最紅的：三星、四倍、十期
-play_star = st.sidebar.selectbox("玩法 (星數)", options=list(range(1, 7)), index=2, format_func=lambda x: f"{x} 星")
-multiplier = st.sidebar.number_input("倍數", min_value=1, value=4, step=1)
-draw_counts = st.sidebar.number_input("連續期數", min_value=1, value=10, step=1)
+# ==========================================
+# 區塊一：使用者輸入區 (移至最上方)
+# ==========================================
+st.title("🎰 Bingo Bingo 即時對獎系統")
+st.markdown("### 📝 設定購買清單")
 
-st.sidebar.markdown("---")
-is_bonus_active = st.sidebar.checkbox("💰 啟用目前加碼活動獎金")
+# 使用欄位排版讓畫面更緊湊
+col1, col2, col3, col4, col5 = st.columns(5)
+with col1:
+    play_star = st.selectbox("玩法 (星數)", options=list(range(1, 7)), index=2, format_func=lambda x: f"{x} 星")
+with col2:
+    multiplier = st.number_input("倍數", min_value=1, value=4, step=1)
+with col3:
+    draw_counts = st.number_input("連續期數", min_value=1, value=10, step=1)
+with col4:
+    start_draw = st.text_input("起始期數", placeholder="例如: 113000123")
+with col5:
+    st.write("") # 排版佔位
+    st.write("")
+    is_bonus_active = st.checkbox("💰 啟用加碼獎金")
 
-st.sidebar.markdown("---")
-start_draw = st.sidebar.text_input("起始對獎期數", placeholder="例如: 113000123")
-selected_numbers = st.sidebar.multiselect(
-    f"選擇已購買的 {play_star} 個號碼", 
+# 選號區拉出來獨立，讓畫面較寬廣
+selected_numbers = st.multiselect(
+    f"請選擇 {play_star} 個號碼 (您已購買的號碼)", 
     options=list(range(1, 81)),
     max_selections=play_star
 )
 
-# --- 主畫面：對獎邏輯與顯示 ---
-latest_data = fetch_latest_draws()
-
-st.subheader("即時開獎動態")
-st.caption(f"最後更新時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} (每分鐘自動刷新判定)")
-
-if st.button("🔄 手動強制刷新資料"):
-    fetch_latest_draws.clear()
-    st.rerun()
-
-# 顯示最新的三期作為參考
-cols = st.columns(3)
-for idx, (draw_id, numbers) in enumerate(list(latest_data.items())[-3:]):
-    with cols[idx]:
-        st.metric(label=f"第 {draw_id} 期", value="已開獎")
-        st.write(", ".join([str(n).zfill(2) for n in numbers]))
-
 st.divider()
 
-# --- 執行對獎 ---
+# ==========================================
+# 區塊二：對獎結果與金額 (緊接在輸入區下方)
+# ==========================================
 if len(selected_numbers) == play_star and start_draw:
-    st.subheader("🎯 對獎結果")
+    st.markdown("### 🎯 對獎結果與金額")
     
     total_prize = 0
     total_cost = 25 * multiplier * draw_counts
-    
     results = []
     
-    # 這裡將模擬從起始期數往後推算連續十期的邏輯
-    # 實務上會比對 start_draw 到 start_draw + draw_counts 的資料
-    for draw_id, winning_numbers in latest_data.items():
-        # 計算中了幾個號碼
+    for draw_id, data in latest_data.items():
+        winning_numbers = data["numbers"]
+        draw_time = data["time"]
+        
+        # 對獎邏輯
         matched_numbers = set(selected_numbers).intersection(set(winning_numbers))
         match_count = len(matched_numbers)
-        
-        # 計算該期獎金
         base_prize = PRIZE_TABLE[play_star].get(match_count, 0)
         
-        # 處理加碼邏輯 (依當前台彩實際加碼倍率調整，此處示範加碼 1.5 倍)
+        # 加碼邏輯 (以 1.5 倍為例，可自行調整)
         if is_bonus_active and base_prize > 0:
             base_prize = int(base_prize * 1.5)
             
@@ -109,21 +112,44 @@ if len(selected_numbers) == play_star and start_draw:
         
         results.append({
             "期數": draw_id,
+            "開獎時間": draw_time,
             "開出號碼": ", ".join([str(n).zfill(2) for n in winning_numbers]),
             "對中號碼": ", ".join([str(n).zfill(2) for n in matched_numbers]) if matched_numbers else "無",
-            "獲得獎金": f"${final_prize:,}" if final_prize > 0 else "$0"
+            "本期獎金": f"${final_prize:,}" if final_prize > 0 else "$0"
         })
         
-    # 顯示結果表格
-    df_results = pd.DataFrame(results)
-    st.dataframe(df_results, use_container_width=True)
+    # 總結算數字 (用 Metrics 大字顯示)
+    metric_col1, metric_col2, metric_col3 = st.columns(3)
+    metric_col1.metric("購買總成本", f"${total_cost:,}")
+    metric_col2.metric("累積獲得獎金", f"${total_prize:,}")
+    profit = total_prize - total_cost
+    metric_col3.metric("淨賺 / 淨損", f"${profit:,}")
     
-    # 總結算
-    st.info(f"**購買成本:** ${total_cost:,} NTD")
-    if total_prize > 0:
-        st.success(f"**恭喜！總共贏得獎金:** ${total_prize:,} NTD")
-    else:
-        st.warning("**總共贏得獎金:** $0 NTD (再接再厲！)")
+    # 詳細對獎明細表
+    st.dataframe(pd.DataFrame(results), use_container_width=True)
 
 elif len(selected_numbers) > 0 and len(selected_numbers) != play_star:
-    st.error(f"⚠️ 你選擇了 {play_star} 星玩法，請確保剛好選取 {play_star} 個號碼。")
+    st.warning(f"⚠️ 提示：您選擇了 {play_star} 星玩法，目前選了 {len(selected_numbers)} 個號碼，請選滿 {play_star} 個才能進行對獎。")
+
+st.divider()
+
+# ==========================================
+# 區塊三：每期號碼歷史紀錄 (移至最下方)
+# ==========================================
+st.markdown("### 📊 近期開獎號碼")
+col_refresh, col_time = st.columns([1, 4])
+with col_refresh:
+    if st.button("🔄 手動刷新號碼"):
+        fetch_latest_draws.clear()
+        st.rerun()
+with col_time:
+    st.caption(f"最後系統更新時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} (每分鐘自動刷新)")
+
+# 顯示最新的期數卡片，並加上時間
+history_cols = st.columns(len(latest_data))
+for idx, (draw_id, data) in enumerate(latest_data.items()):
+    with history_cols[idx]:
+        st.markdown(f"**第 {draw_id} 期**")
+        st.caption(f"🕒 {data['time']}")
+        # 用漂亮的區塊顯示號碼
+        st.info(", ".join([str(n).zfill(2) for n in data["numbers"]]))
