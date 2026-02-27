@@ -5,30 +5,34 @@ from bs4 import BeautifulSoup
 import pandas as pd
 from datetime import datetime, timedelta
 import collections
-import random
 import re
 import urllib.parse
-import time
 
 # ==========================================
-# 區塊零：網頁設定與 CSS
+# 區塊零：網頁設定與高質感 CSS
 # ==========================================
-st.set_page_config(page_title="Bingo Bingo 全玩法對獎中心", page_icon="🎰", layout="wide")
+st.set_page_config(page_title="Bingo Bingo 專業對獎終端", page_icon="🎰", layout="wide")
 
 st.markdown("""
 <style>
-    h1, h2, h3 { border-bottom: 2px solid #E63946; padding-bottom: 10px; scroll-margin-top: 80px; }
+    /* 全局與標題樣式 */
+    h1, h2, h3 { border-bottom: 2px solid #E63946; padding-bottom: 10px; }
     h1 { text-align: center; margin-top: -30px; }
     [data-testid="stMetricValue"] { color: #E63946; font-weight: bold; }
+    
+    /* Streamlit 原生按鈕樣式 */
     div.stButton > button { background-color: #E63946 !important; color: #FFFFFF !important; border-radius: 5px; border: 2px solid #F1C40F !important; font-weight: bold; width: 100%; }
     div.stButton > button:hover { background-color: #C12A35 !important; border-color: #E0B40D !important; }
-    .nav-btn { display: inline-block; padding: 10px 15px; margin: 5px; background-color: #0A1931; color: #FFFFFF !important; text-decoration: none; border-radius: 5px; font-weight: bold; border: 1px solid #F1C40F; transition: 0.3s; }
-    .nav-btn:hover { background-color: #E63946; border-color: #0A1931; }
-    .stSuccess { background-color: rgba(46, 204, 113, 0.2) !important; }
-    .stWarning { background-color: rgba(243, 156, 18, 0.2) !important; }
-    .stError { background-color: rgba(230, 57, 70, 0.2) !important; }
-    hr { border-top: 2px solid #E63946; }
+    
+    /* 讓 radio 選項橫向排版 */
     div.row-widget.stRadio > div { flex-direction: row; gap: 20px; }
+    
+    /* 頁籤 (Tabs) 樣式優化 */
+    .stTabs [data-baseweb="tab-list"] { gap: 8px; }
+    .stTabs [data-baseweb="tab"] { background-color: #0A1931; color: #FFFFFF; border-radius: 5px 5px 0 0; padding: 10px 20px; }
+    .stTabs [aria-selected="true"] { background-color: #E63946; border-bottom-color: #E63946; }
+    
+    hr { border-top: 2px solid #E63946; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -48,17 +52,12 @@ BS_PRIZE_TABLE = {"大": 150, "小": 150}
 OE_PRIZE_TABLE = {"單": 150, "雙": 150, "小單": 45, "小雙": 45, "和": 70}
 
 # ==========================================
-# 區塊二：【核心】10重火力多源代理爬蟲
+# 區塊二：無假資料爬蟲 (10重火力)
 # ==========================================
 def parse_official_api(res):
-    """解析台彩官方 JSON"""
-    parsed = []
-    for i in res.json().get('content', [])[:20]:
-        parsed.append({"期數": str(i['period']), "開獎時間": i['openTime'][:16].replace('T', ' '), "開出號碼": [int(x) for x in i['drawNumberSize']]})
-    return parsed
+    return [{"期數": str(i['period']), "開獎時間": i['openTime'][:16].replace('T', ' '), "開出號碼": [int(x) for x in i['drawNumberSize']]} for i in res.json().get('content', [])[:20]]
 
 def parse_html_table(res, encoding='utf-8'):
-    """解析各大網站 HTML 表格，使用高容錯正則表達式"""
     soup = BeautifulSoup(res.content.decode(encoding, errors='ignore'), 'html.parser')
     parsed = []
     for row in soup.find_all('tr'):
@@ -67,75 +66,52 @@ def parse_html_table(res, encoding='utf-8'):
             nums = [int(n) for n in re.findall(r'\d+', text)]
             valid_nums = [n for n in nums if 1 <= n <= 80]
             if len(valid_nums) >= 20:
-                # 尋找期數 (通常是 9 位數)
                 draw_ids = re.findall(r'11[0-9]{7}', text)
                 if draw_ids:
-                    parsed.append({"期數": draw_ids[0], "開獎時間": "已開獎 (來源未提供)", "開出號碼": valid_nums[:20]})
+                    parsed.append({"期數": draw_ids[0], "開獎時間": "已開獎", "開出號碼": valid_nums[:20]})
     return parsed
 
 @st.cache_data(ttl=60)
 def fetch_real_bingo_data():
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': '*/*'
-    }
-    
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0', 'Accept': '*/*'}
     url_official = "https://api.taiwanlottery.com/TLCAPIWeB/Lottery/BingoResult"
     url_pilio = "https://www.pilio.idv.tw/bingo/list.asp"
     url_lotto8 = "https://www.lotto-8.com/taiwan/listbingo.asp"
     
-    # 建立 10 種不同的連線策略
     strategies = [
         {"name": "1. 官方API (CodeTabs跳板)", "url": f"https://api.codetabs.com/v1/proxy?quest={url_official}", "type": "official"},
         {"name": "2. Pilio 樂透 (CodeTabs跳板)", "url": f"https://api.codetabs.com/v1/proxy?quest={url_pilio}", "type": "html_big5"},
         {"name": "3. 官方API (直連)", "url": url_official, "type": "official"},
-        {"name": "4. 官方API (AllOrigins跳板)", "url": f"https://api.allorigins.win/raw?url={urllib.parse.quote(url_official)}", "type": "official"},
+        {"name": "4. 官方API (AllOrigins)", "url": f"https://api.allorigins.win/raw?url={urllib.parse.quote(url_official)}", "type": "official"},
         {"name": "5. Pilio 樂透 (直連)", "url": url_pilio, "type": "html_big5"},
-        {"name": "6. Lotto8 開獎 (CodeTabs跳板)", "url": f"https://api.codetabs.com/v1/proxy?quest={url_lotto8}", "type": "html_utf8"},
-        {"name": "7. 官方API (CorsProxy跳板)", "url": f"https://corsproxy.io/?{urllib.parse.quote(url_official)}", "type": "official"},
-        {"name": "8. Pilio 樂透 (AllOrigins跳板)", "url": f"https://api.allorigins.win/raw?url={urllib.parse.quote(url_pilio)}", "type": "html_big5"},
+        {"name": "6. Lotto8 開獎 (CodeTabs)", "url": f"https://api.codetabs.com/v1/proxy?quest={url_lotto8}", "type": "html_utf8"},
+        {"name": "7. 官方API (CorsProxy)", "url": f"https://corsproxy.io/?{urllib.parse.quote(url_official)}", "type": "official"},
+        {"name": "8. Pilio 樂透 (AllOrigins)", "url": f"https://api.allorigins.win/raw?url={urllib.parse.quote(url_pilio)}", "type": "html_big5"},
         {"name": "9. Lotto8 開獎 (直連)", "url": url_lotto8, "type": "html_utf8"},
-        {"name": "10. 官方API (ThingProxy跳板)", "url": f"https://thingproxy.freeboard.io/fetch/{url_official}", "type": "official"},
+        {"name": "10. 官方API (ThingProxy)", "url": f"https://thingproxy.freeboard.io/fetch/{url_official}", "type": "official"},
     ]
     
     error_logs = []
-
-    # 依序執行 10 種策略，只要其中一個成功就中斷並回傳
     for strat in strategies:
         try:
-            # 代理伺服器通常需要稍等一下，設定 timeout 為 4 秒避免卡死
             res = requests.get(strat["url"], headers=headers, timeout=4)
             if res.status_code == 200:
-                parsed_data = []
-                if strat["type"] == "official":
-                    parsed_data = parse_official_api(res)
-                elif strat["type"] == "html_big5":
-                    parsed_data = parse_html_table(res, encoding='big5')
-                elif strat["type"] == "html_utf8":
-                    parsed_data = parse_html_table(res, encoding='utf-8')
-                
-                if parsed_data and len(parsed_data) > 0:
-                    return parsed_data, True, strat["name"], ""
-            else:
-                error_logs.append(f"{strat['name'][:5]}錯({res.status_code})")
-        except Exception:
-            error_logs.append(f"{strat['name'][:5]}逾時")
+                parsed_data = parse_official_api(res) if strat["type"] == "official" else parse_html_table(res, encoding='big5' if strat["type"] == "html_big5" else 'utf-8')
+                if parsed_data: return parsed_data, True, strat["name"], ""
+            else: error_logs.append(f"{strat['name'][:5]}錯({res.status_code})")
+        except Exception: error_logs.append(f"{strat['name'][:5]}逾時")
 
-    # 若 10 個全部陣亡，產生防呆資料
-    now = datetime.now()
-    base_draw = int(now.strftime("%Y%j001")) + ((now.hour * 12) + (now.minute // 5))
-    mock_data = [{"期數": str(base_draw - i), "開獎時間": (now - timedelta(minutes=(now.minute % 5) + (i * 5))).strftime("%Y-%m-%d %H:%M"), "開出號碼": random.sample(range(1, 81), 20)} for i in range(20)]
-    return mock_data, False, "無", " | ".join(error_logs)
+    # 拔除假資料！全部失敗時回傳空陣列
+    return [], False, "無", " | ".join(error_logs)
 
 latest_draws_list, fetch_success, data_source_name, error_details = fetch_real_bingo_data()
 latest_data_dict = {item['期數']: {"time": item['開獎時間'], "numbers": item['開出號碼']} for item in latest_draws_list}
 
 # ==========================================
-# 頂部動態區塊：倒數計時器與導航列
+# 頂部動態區塊：倒數計時器
 # ==========================================
-st.markdown("<h1>🎰 Bingo Bingo 全玩法對獎中心</h1>", unsafe_allow_html=True)
+st.markdown("<h1>🎰 Bingo Bingo 專業對獎終端</h1>", unsafe_allow_html=True)
 
-# 動態倒數計時器
 components.html("""
     <div style="font-family: sans-serif; text-align: center; padding: 15px; background-color: #0A1931; color: white; border-radius: 10px; margin-bottom: 10px; border: 2px solid #E63946;">
         <span style="font-size: 1.2rem;">⏳ 距離下一期開獎還有：</span>
@@ -159,20 +135,10 @@ components.html("""
     </script>
 """, height=100)
 
-# 導航鍵
-st.markdown("""
-<div style="text-align: center; margin-bottom: 20px;">
-    <a href="#bet-section" class="nav-btn">📝 投注設定</a>
-    <a href="#result-section" class="nav-btn">🎯 對獎結果</a>
-    <a href="#history-section" class="nav-btn">📊 開獎紀錄</a>
-    <a href="#analysis-section" class="nav-btn">🔥 冷熱分析</a>
-</div>
-""", unsafe_allow_html=True)
-
 if fetch_success: 
-    st.success(f"🟢 即時連線成功 | 突破防火牆使用：**{data_source_name}**")
+    st.success(f"🟢 即時連線成功 | 資料來源：**{data_source_name}**")
 else: 
-    st.error(f"🔴 網路斷線警告 | 10 重連線皆被阻擋。錯誤日誌：{error_details}")
+    st.error(f"🔴 網路斷線警告 | 被阻擋，無最新資料。日誌：{error_details}")
 
 # ==========================================
 # Session State 與彩券保存
@@ -188,159 +154,161 @@ def save_ticket(name, mode, detail, multiplier, continuous, start_draw):
     st.toast(f"✅ 彩券 '{name}' 已保存！")
 
 # ==========================================
-# 區塊三：設定投注單
+# 採用「頁籤 (Tabs)」取代舊式按鈕，提升 UI 質感
 # ==========================================
-st.markdown("<h3 id='bet-section'>📝 設定你的投注單</h3>", unsafe_allow_html=True)
+tab1, tab2, tab3 = st.tabs(["📝 投注與對獎", "📊 開獎紀錄", "🔥 冷熱分析"])
 
-game_mode = st.radio("🎲 選擇遊戲模式", ["🔢 星號玩法 (1~10星)", "⚖️ 猜大小", "☯️ 猜單雙"])
+# ----------------- Tab 1: 投注與對獎 -----------------
+with tab1:
+    st.markdown("### 📝 設定你的投注單")
+    game_mode = st.radio("🎲 選擇遊戲模式", ["🔢 星號玩法 (1~10星)", "⚖️ 猜大小", "☯️ 猜單雙"])
 
-col_play, col_mult, col_draw, col_start, col_bonus = st.columns([2, 1, 1, 1.5, 1])
+    col_play, col_mult, col_draw, col_start, col_bonus = st.columns([2, 1, 1, 1.5, 1])
 
-with col_mult: multiplier = st.number_input("倍數", min_value=1, value=4, step=1)
-with col_draw: draw_counts = st.number_input("連續期數", min_value=1, value=10, step=1)
-with col_start: start_draw = st.text_input("起始期數", placeholder="例如: 113000123")
-with col_bonus:
-    st.write("")
-    st.write("")
-    is_bonus_active = st.checkbox("💰 啟用加碼獎金", value=False)
+    with col_mult: multiplier = st.number_input("倍數", min_value=1, value=4, step=1)
+    with col_draw: draw_counts = st.number_input("連續期數", min_value=1, value=10, step=1)
+    with col_start: start_draw = st.text_input("起始期數", placeholder="例如: 113000123")
+    with col_bonus:
+        st.write("")
+        st.write("")
+        is_bonus_active = st.checkbox("💰 啟用加碼獎金", value=False)
 
-bet_detail = None
-if game_mode == "🔢 星號玩法 (1~10星)":
-    with col_play: play_star = st.selectbox("星數", options=list(range(1, 11)), index=2, format_func=lambda x: f"{x} 星")
-    selected_numbers = st.multiselect(f"請選擇你的 {play_star} 個號碼", options=list(range(1, 81)), max_selections=play_star)
-    bet_detail = {"star": play_star, "numbers": selected_numbers}
-    is_valid_bet = (len(selected_numbers) == play_star)
-elif game_mode == "⚖️ 猜大小":
-    with col_play: bs_choice = st.selectbox("選擇大小", ["大", "小"], format_func=lambda x: "大 (41~80)" if x == "大" else "小 (01~40)")
-    bet_detail = {"choice": bs_choice}
-    is_valid_bet = True
-elif game_mode == "☯️ 猜單雙":
-    with col_play: oe_choice = st.selectbox("選擇單雙", ["單", "雙", "小單", "小雙", "和"])
-    bet_detail = {"choice": oe_choice}
-    is_valid_bet = True
+    bet_detail = None
+    if game_mode == "🔢 星號玩法 (1~10星)":
+        with col_play: play_star = st.selectbox("星數", options=list(range(1, 11)), index=2, format_func=lambda x: f"{x} 星")
+        selected_numbers = st.multiselect(f"請選擇你的 {play_star} 個號碼", options=list(range(1, 81)), max_selections=play_star)
+        bet_detail = {"star": play_star, "numbers": selected_numbers}
+        is_valid_bet = (len(selected_numbers) == play_star)
+    elif game_mode == "⚖️ 猜大小":
+        with col_play: bs_choice = st.selectbox("選擇大小", ["大", "小"], format_func=lambda x: "大 (41~80)" if x == "大" else "小 (01~40)")
+        bet_detail = {"choice": bs_choice}
+        is_valid_bet = True
+    elif game_mode == "☯️ 猜單雙":
+        with col_play: oe_choice = st.selectbox("選擇單雙", ["單", "雙", "小單", "小雙", "和"])
+        bet_detail = {"choice": oe_choice}
+        is_valid_bet = True
 
-with st.expander("💾 保存或載入彩券"):
-    col_name, col_btn = st.columns([3, 1])
-    ticket_name = col_name.text_input("輸入彩券名稱進行保存")
-    if col_btn.button("保存彩券"):
-        if ticket_name and is_valid_bet and start_draw: save_ticket(ticket_name, game_mode, bet_detail, multiplier, draw_counts, start_draw)
-        else: st.error("請確認資料填寫完整。")
+    with st.expander("💾 保存彩券配置 (無資料時亦可儲存)"):
+        col_name, col_btn = st.columns([3, 1])
+        ticket_name = col_name.text_input("輸入彩券名稱進行保存")
+        if col_btn.button("保存彩券"):
+            if ticket_name and is_valid_bet and start_draw: save_ticket(ticket_name, game_mode, bet_detail, multiplier, draw_counts, start_draw)
+            else: st.error("請確認資料填寫完整。")
 
-st.divider()
+    st.divider()
+    st.markdown("### 🎯 實時對獎結果")
 
-# ==========================================
-# 區塊四：對獎結果
-# ==========================================
-st.markdown("<h3 id='result-section'>🎯 實時對獎結果</h3>", unsafe_allow_html=True)
-
-if is_valid_bet and start_draw:
-    total_prize = 0
-    total_cost = 25 * multiplier * draw_counts
-    results = []
-    
-    matched_draws = []
-    try:
-        for i in range(draw_counts):
-            draw_id = str(int(start_draw) + i)
-            if draw_id in latest_data_dict: matched_draws.append((draw_id, latest_data_dict[draw_id]))
-    except ValueError:
-        pass 
-
-    if not matched_draws:
-        st.warning(f"⚠️ 找不到期數 {start_draw} 的相關資料，請確認是否尚未開獎或輸入錯誤。")
-    else:
-        for draw_id, data in matched_draws:
-            winning_numbers = data["numbers"]
-            base_prize = 0
-            match_str = ""
-            
-            if game_mode == "🔢 星號玩法 (1~10星)":
-                matched_nums = set(bet_detail["numbers"]).intersection(set(winning_numbers))
-                match_count = len(matched_nums)
-                prize_table = BONUS_STAR_PRIZE if is_bonus_active else NORMAL_STAR_PRIZE
-                base_prize = prize_table[bet_detail["star"]].get(match_count, 0)
-                match_str = f"中 {match_count} 個: " + (", ".join([str(n).zfill(2) for n in sorted(list(matched_nums))]) if matched_nums else "無")
-
-            elif game_mode == "⚖️ 猜大小":
-                big_count = sum(1 for n in winning_numbers if n >= 41)
-                actual_result = "大" if big_count >= 13 else ("小" if big_count <= 7 else "無 (8~12個)")
-                if bet_detail["choice"] == actual_result: base_prize = BS_PRIZE_TABLE[bet_detail["choice"]]
-                match_str = f"開出: {actual_result} (大{big_count}/小{20-big_count})"
-
-            elif game_mode == "☯️ 猜單雙":
-                odd_count = sum(1 for n in winning_numbers if n % 2 != 0)
-                actual_result = "單" if odd_count >= 13 else ("雙" if odd_count <= 7 else ("小單" if odd_count in [11,12] else ("小雙" if odd_count in [8,9] else "和")))
-                if bet_detail["choice"] == actual_result: base_prize = OE_PRIZE_TABLE[bet_detail["choice"]]
-                match_str = f"開出: {actual_result} (單{odd_count}/雙{20-odd_count})"
-            
-            final_prize = base_prize * multiplier
-            total_prize += final_prize
-            
-            results.append({
-                "期數": draw_id, "開出號碼": ", ".join([str(n).zfill(2) for n in winning_numbers]),
-                "對獎結果": match_str, "本期獎金": f"${final_prize:,}" if final_prize > 0 else "$0"
-            })
-            
-        metric_col1, metric_col2, metric_col3 = st.columns(3)
-        metric_col1.metric("購買總成本", f"${total_cost:,}")
-        metric_col2.metric("累積獲得獎金", f"${total_prize:,}")
-        profit = total_prize - total_cost
+    if not fetch_success:
+        st.warning("📡 目前無法連線取得開獎資料。請稍後重試，或考慮將本程式部署至 Hugging Face Spaces 或本地端執行以解除 IP 封鎖。")
+    elif is_valid_bet and start_draw:
+        total_prize = 0
+        total_cost = 25 * multiplier * draw_counts
+        results = []
         
-        if profit > 0:
-            metric_col3.metric("淨賺", f"${profit:,}")
-            st.success("恭喜！本張彩券目前贏得獎金！")
+        matched_draws = []
+        try:
+            for i in range(draw_counts):
+                draw_id = str(int(start_draw) + i)
+                if draw_id in latest_data_dict: matched_draws.append((draw_id, latest_data_dict[draw_id]))
+        except ValueError:
+            pass 
+
+        if not matched_draws:
+            st.info(f"⚠️ 資料庫中尚無起始期數 {start_draw} 的相關紀錄，可能尚未開獎。")
         else:
-            metric_col3.metric("淨損益", f"${profit:,}")
-        
-        st.dataframe(pd.DataFrame(results), use_container_width=True)
-else:
-    st.info("👆 請在上方完成投注設定與起始期數，此處將自動計算結果。")
+            for draw_id, data in matched_draws:
+                winning_numbers = data["numbers"]
+                base_prize = 0
+                match_str = ""
+                
+                if game_mode == "🔢 星號玩法 (1~10星)":
+                    matched_nums = set(bet_detail["numbers"]).intersection(set(winning_numbers))
+                    match_count = len(matched_nums)
+                    prize_table = BONUS_STAR_PRIZE if is_bonus_active else NORMAL_STAR_PRIZE
+                    base_prize = prize_table[bet_detail["star"]].get(match_count, 0)
+                    match_str = f"中 {match_count} 個: " + (", ".join([str(n).zfill(2) for n in sorted(list(matched_nums))]) if matched_nums else "無")
 
-st.divider()
+                elif game_mode == "⚖️ 猜大小":
+                    big_count = sum(1 for n in winning_numbers if n >= 41)
+                    actual_result = "大" if big_count >= 13 else ("小" if big_count <= 7 else "無 (8~12個)")
+                    if bet_detail["choice"] == actual_result: base_prize = BS_PRIZE_TABLE[bet_detail["choice"]]
+                    match_str = f"開出: {actual_result} (大{big_count}/小{20-big_count})"
 
-# ==========================================
-# 區塊五：最新開獎號碼
-# ==========================================
-st.markdown("<h3 id='history-section'>📊 近期即時開獎紀錄</h3>", unsafe_allow_html=True)
-col_refresh, col_time = st.columns([1, 4])
-with col_refresh:
-    if st.button("🔄 手動刷新資料"):
-        fetch_real_bingo_data.clear()
-        st.rerun()
-with col_time:
-    st.caption(f"🕒 最後刷新時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} (每分鐘自動抓取最新)")
+                elif game_mode == "☯️ 猜單雙":
+                    odd_count = sum(1 for n in winning_numbers if n % 2 != 0)
+                    actual_result = "單" if odd_count >= 13 else ("雙" if odd_count <= 7 else ("小單" if odd_count in [11,12] else ("小雙" if odd_count in [8,9] else "和")))
+                    if bet_detail["choice"] == actual_result: base_prize = OE_PRIZE_TABLE[bet_detail["choice"]]
+                    match_str = f"開出: {actual_result} (單{odd_count}/雙{20-odd_count})"
+                
+                final_prize = base_prize * multiplier
+                total_prize += final_prize
+                
+                results.append({
+                    "期數": draw_id, "開出號碼": ", ".join([str(n).zfill(2) for n in winning_numbers]),
+                    "對獎結果": match_str, "本期獎金": f"${final_prize:,}" if final_prize > 0 else "$0"
+                })
+                
+            metric_col1, metric_col2, metric_col3 = st.columns(3)
+            metric_col1.metric("購買總成本", f"${total_cost:,}")
+            metric_col2.metric("累積獲得獎金", f"${total_prize:,}")
+            profit = total_prize - total_cost
+            
+            if profit > 0:
+                metric_col3.metric("淨賺", f"${profit:,}")
+                st.success("恭喜！本張彩券目前贏得獎金！")
+            else:
+                metric_col3.metric("淨損益", f"${profit:,}")
+            
+            st.dataframe(pd.DataFrame(results), use_container_width=True)
+    else:
+        st.info("👆 請完成投注設定與起始期數，系統將在此顯示對獎結果。")
 
-history_cols = st.columns(min(len(latest_draws_list), 4))
-for idx, item in enumerate(latest_draws_list[:4]):
-    with history_cols[idx]:
-        st.markdown(f"**第 {item['期數']} 期**")
-        st.caption(f"🕒 {item['開獎時間']}")
-        st.info(", ".join([str(n).zfill(2) for n in item['開出號碼']]))
+# ----------------- Tab 2: 開獎紀錄 -----------------
+with tab2:
+    st.markdown("### 📊 近期即時開獎紀錄")
+    col_refresh, col_time = st.columns([1, 4])
+    with col_refresh:
+        if st.button("🔄 手動刷新資料"):
+            fetch_real_bingo_data.clear()
+            st.rerun()
+    with col_time:
+        st.caption(f"🕒 最後刷新嘗試: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-st.divider()
+    if not latest_draws_list:
+        st.warning("❌ 目前無資料可顯示。")
+    else:
+        # 使用多欄排版顯示紀錄，版面更緊湊
+        history_cols = st.columns(min(len(latest_draws_list), 4))
+        for idx, item in enumerate(latest_draws_list[:8]): # 最多顯示8期，4個一排
+            with history_cols[idx % 4]:
+                st.markdown(f"**第 {item['期數']} 期**")
+                st.caption(f"🕒 {item['開獎時間']}")
+                st.info(", ".join([str(n).zfill(2) for n in item['開出號碼']]))
 
-# ==========================================
-# 區塊六：冷熱號碼分析 (最底部)
-# ==========================================
-st.markdown("<h3 id='analysis-section'>🔥 近期冷熱號碼分析</h3>", unsafe_allow_html=True)
-analysis_N = st.slider("分析最近 N 期的號碼", min_value=10, max_value=50, value=20, step=10)
-all_numbers = []
-for draw_id, data in list(latest_data_dict.items())[:analysis_N]:
-    all_numbers.extend(data['numbers'])
+# ----------------- Tab 3: 冷熱分析 -----------------
+with tab3:
+    st.markdown("### 🔥 近期冷熱號碼分析")
+    
+    if not latest_draws_list:
+        st.warning("❌ 需要取得真實開獎資料才能進行大數據分析。")
+    else:
+        analysis_N = st.slider("分析最近 N 期的號碼", min_value=10, max_value=50, value=20, step=10)
+        all_numbers = []
+        for draw_id, data in list(latest_data_dict.items())[:analysis_N]:
+            all_numbers.extend(data['numbers'])
 
-if all_numbers:
-    number_counts = collections.Counter(all_numbers)
-    df_counts = pd.DataFrame(number_counts.items(), columns=['號碼', '開出次數']).sort_values(by='開出次數', ascending=False)
-    df_counts['號碼'] = df_counts['號碼'].apply(lambda x: str(x).zfill(2))
+        if all_numbers:
+            number_counts = collections.Counter(all_numbers)
+            df_counts = pd.DataFrame(number_counts.items(), columns=['號碼', '開出次數']).sort_values(by='開出次數', ascending=False)
+            df_counts['號碼'] = df_counts['號碼'].apply(lambda x: str(x).zfill(2))
 
-    hot_col, cold_col, chart_col = st.columns([1, 1, 2])
-    with hot_col:
-        st.markdown("**🔥 熱門號碼 Top 10**")
-        st.dataframe(df_counts.head(10)[['號碼', '開出次數']], use_container_width=True, hide_index=True)
-    with cold_col:
-        st.markdown("**❄️ 冷門號碼 Top 10**")
-        st.dataframe(df_counts.tail(10)[['號碼', '開出次數']].sort_values(by='開出次數'), use_container_width=True, hide_index=True)
-    with chart_col:
-        st.markdown("**📈 全號碼分佈圖**")
-        st.bar_chart(df_counts.set_index('號碼'), color='#E63946')
-        
+            hot_col, cold_col, chart_col = st.columns([1, 1, 2])
+            with hot_col:
+                st.markdown("**🔥 熱門 Top 10**")
+                st.dataframe(df_counts.head(10)[['號碼', '開出次數']], use_container_width=True, hide_index=True)
+            with cold_col:
+                st.markdown("**❄️ 冷門 Top 10**")
+                st.dataframe(df_counts.tail(10)[['號碼', '開出次數']].sort_values(by='開出次數'), use_container_width=True, hide_index=True)
+            with chart_col:
+                st.markdown("**📈 全號碼分佈圖**")
+                st.bar_chart(df_counts.set_index('號碼'), color='#E63946')
