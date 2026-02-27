@@ -8,32 +8,22 @@ import collections
 import random
 import re
 import urllib.parse
+import time
 
 # ==========================================
-# 區塊零：網頁設定與「自適應」台彩風格 CSS
+# 區塊零：網頁設定與 CSS
 # ==========================================
 st.set_page_config(page_title="Bingo Bingo 全玩法對獎中心", page_icon="🎰", layout="wide")
 
 st.markdown("""
 <style>
-    /* 全局與標題樣式 */
     h1, h2, h3 { border-bottom: 2px solid #E63946; padding-bottom: 10px; scroll-margin-top: 80px; }
     h1 { text-align: center; margin-top: -30px; }
     [data-testid="stMetricValue"] { color: #E63946; font-weight: bold; }
-    
-    /* Streamlit 原生按鈕樣式 */
     div.stButton > button { background-color: #E63946 !important; color: #FFFFFF !important; border-radius: 5px; border: 2px solid #F1C40F !important; font-weight: bold; width: 100%; }
     div.stButton > button:hover { background-color: #C12A35 !important; border-color: #E0B40D !important; }
-    
-    /* 導航跳轉按鈕樣式 */
-    .nav-btn {
-        display: inline-block; padding: 10px 15px; margin: 5px;
-        background-color: #0A1931; color: #FFFFFF !important;
-        text-decoration: none; border-radius: 5px; font-weight: bold;
-        border: 1px solid #F1C40F; transition: 0.3s;
-    }
+    .nav-btn { display: inline-block; padding: 10px 15px; margin: 5px; background-color: #0A1931; color: #FFFFFF !important; text-decoration: none; border-radius: 5px; font-weight: bold; border: 1px solid #F1C40F; transition: 0.3s; }
     .nav-btn:hover { background-color: #E63946; border-color: #0A1931; }
-    
     .stSuccess { background-color: rgba(46, 204, 113, 0.2) !important; }
     .stWarning { background-color: rgba(243, 156, 18, 0.2) !important; }
     .stError { background-color: rgba(230, 57, 70, 0.2) !important; }
@@ -43,16 +33,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 區塊一：1~10星全獎金表與大小單雙
+# 區塊一：獎金表
 # ==========================================
 NORMAL_STAR_PRIZE = {
-    1: {1: 50}, 2: {2: 75}, 3: {3: 500, 2: 50},
-    4: {4: 1000, 3: 100, 2: 25}, 5: {5: 7500, 4: 500, 3: 50},
-    6: {6: 25000, 5: 1000, 4: 200, 3: 25},
-    7: {7: 80000, 6: 3000, 5: 300, 4: 50, 3: 25},
-    8: {8: 500000, 7: 20000, 6: 1000, 5: 400, 4: 100, 0: 25},
-    9: {9: 1000000, 8: 100000, 7: 3000, 6: 500, 5: 100, 4: 25, 0: 25},
-    10: {10: 5000000, 9: 250000, 8: 25000, 7: 2500, 6: 250, 5: 25, 0: 25}
+    1: {1: 50}, 2: {2: 75}, 3: {3: 500, 2: 50}, 4: {4: 1000, 3: 100, 2: 25}, 
+    5: {5: 7500, 4: 500, 3: 50}, 6: {6: 25000, 5: 1000, 4: 200, 3: 25},
+    7: {7: 80000, 6: 3000, 5: 300, 4: 50, 3: 25}, 8: {8: 500000, 7: 20000, 6: 1000, 5: 400, 4: 100, 0: 25},
+    9: {9: 1000000, 8: 100000, 7: 3000, 6: 500, 5: 100, 4: 25, 0: 25}, 10: {10: 5000000, 9: 250000, 8: 25000, 7: 2500, 6: 250, 5: 25, 0: 25}
 }
 BONUS_STAR_PRIZE = NORMAL_STAR_PRIZE.copy()
 BONUS_STAR_PRIZE[3] = {3: 1000, 2: 50}
@@ -61,60 +48,80 @@ BS_PRIZE_TABLE = {"大": 150, "小": 150}
 OE_PRIZE_TABLE = {"單": 150, "雙": 150, "小單": 45, "小雙": 45, "和": 70}
 
 # ==========================================
-# 區塊二：多重代理輪詢爬蟲 (繞過嚴格 WAF)
+# 區塊二：【核心】10重火力多源代理爬蟲
 # ==========================================
+def parse_official_api(res):
+    """解析台彩官方 JSON"""
+    parsed = []
+    for i in res.json().get('content', [])[:20]:
+        parsed.append({"期數": str(i['period']), "開獎時間": i['openTime'][:16].replace('T', ' '), "開出號碼": [int(x) for x in i['drawNumberSize']]})
+    return parsed
+
+def parse_html_table(res, encoding='utf-8'):
+    """解析各大網站 HTML 表格，使用高容錯正則表達式"""
+    soup = BeautifulSoup(res.content.decode(encoding, errors='ignore'), 'html.parser')
+    parsed = []
+    for row in soup.find_all('tr'):
+        text = row.get_text()
+        if '期' in text:
+            nums = [int(n) for n in re.findall(r'\d+', text)]
+            valid_nums = [n for n in nums if 1 <= n <= 80]
+            if len(valid_nums) >= 20:
+                # 尋找期數 (通常是 9 位數)
+                draw_ids = re.findall(r'11[0-9]{7}', text)
+                if draw_ids:
+                    parsed.append({"期數": draw_ids[0], "開獎時間": "已開獎 (來源未提供)", "開出號碼": valid_nums[:20]})
+    return parsed
+
 @st.cache_data(ttl=60)
 def fetch_real_bingo_data():
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': '*/*'
     }
-    url_official = "https://api.taiwanlottery.com/TLCAPIWeB/Lottery/BingoResult"
     
-    # 建立多重代理伺服器陣列，增加突圍機率
-    proxies = [
-        f"https://api.allorigins.win/raw?url={urllib.parse.quote(url_official)}",
-        f"https://api.codetabs.com/v1/proxy?quest={urllib.parse.quote(url_official)}",
-        f"https://corsproxy.io/?{urllib.parse.quote(url_official)}"
+    url_official = "https://api.taiwanlottery.com/TLCAPIWeB/Lottery/BingoResult"
+    url_pilio = "https://www.pilio.idv.tw/bingo/list.asp"
+    url_lotto8 = "https://www.lotto-8.com/taiwan/listbingo.asp"
+    
+    # 建立 10 種不同的連線策略
+    strategies = [
+        {"name": "1. 官方API (CodeTabs跳板)", "url": f"https://api.codetabs.com/v1/proxy?quest={url_official}", "type": "official"},
+        {"name": "2. Pilio 樂透 (CodeTabs跳板)", "url": f"https://api.codetabs.com/v1/proxy?quest={url_pilio}", "type": "html_big5"},
+        {"name": "3. 官方API (直連)", "url": url_official, "type": "official"},
+        {"name": "4. 官方API (AllOrigins跳板)", "url": f"https://api.allorigins.win/raw?url={urllib.parse.quote(url_official)}", "type": "official"},
+        {"name": "5. Pilio 樂透 (直連)", "url": url_pilio, "type": "html_big5"},
+        {"name": "6. Lotto8 開獎 (CodeTabs跳板)", "url": f"https://api.codetabs.com/v1/proxy?quest={url_lotto8}", "type": "html_utf8"},
+        {"name": "7. 官方API (CorsProxy跳板)", "url": f"https://corsproxy.io/?{urllib.parse.quote(url_official)}", "type": "official"},
+        {"name": "8. Pilio 樂透 (AllOrigins跳板)", "url": f"https://api.allorigins.win/raw?url={urllib.parse.quote(url_pilio)}", "type": "html_big5"},
+        {"name": "9. Lotto8 開獎 (直連)", "url": url_lotto8, "type": "html_utf8"},
+        {"name": "10. 官方API (ThingProxy跳板)", "url": f"https://thingproxy.freeboard.io/fetch/{url_official}", "type": "official"},
     ]
     
     error_logs = []
 
-    # 1. 嘗試官方直連
-    try:
-        res = requests.get(url_official, headers=headers, timeout=5)
-        if res.status_code == 200:
-            parsed = [{"期數": str(i['period']), "開獎時間": i['openTime'][:16].replace('T', ' '), "開出號碼": [int(x) for x in i['drawNumberSize']]} for i in res.json().get('content', [])[:20]]
-            if parsed: return parsed, True, "台彩官方 (直連成功)", ""
-    except Exception: error_logs.append("直連失敗")
-
-    # 2. 啟動多重代理輪詢
-    for proxy in proxies:
+    # 依序執行 10 種策略，只要其中一個成功就中斷並回傳
+    for strat in strategies:
         try:
-            res = requests.get(proxy, timeout=8)
+            # 代理伺服器通常需要稍等一下，設定 timeout 為 4 秒避免卡死
+            res = requests.get(strat["url"], headers=headers, timeout=4)
             if res.status_code == 200:
-                parsed = [{"期數": str(i['period']), "開獎時間": i['openTime'][:16].replace('T', ' '), "開出號碼": [int(x) for x in i['drawNumberSize']]} for i in res.json().get('content', [])[:20]]
-                if parsed: return parsed, True, "台彩官方 (代理跳板成功)", ""
+                parsed_data = []
+                if strat["type"] == "official":
+                    parsed_data = parse_official_api(res)
+                elif strat["type"] == "html_big5":
+                    parsed_data = parse_html_table(res, encoding='big5')
+                elif strat["type"] == "html_utf8":
+                    parsed_data = parse_html_table(res, encoding='utf-8')
+                
+                if parsed_data and len(parsed_data) > 0:
+                    return parsed_data, True, strat["name"], ""
+            else:
+                error_logs.append(f"{strat['name'][:5]}錯({res.status_code})")
         except Exception:
-            error_logs.append("代理逾時")
+            error_logs.append(f"{strat['name'][:5]}逾時")
 
-    # 3. 終極備援：Pilio (透過代理)
-    try:
-        proxy_pilio = f"https://api.allorigins.win/raw?url={urllib.parse.quote('https://www.pilio.idv.tw/bingo/list.asp')}"
-        res = requests.get(proxy_pilio, timeout=8)
-        if res.status_code == 200:
-            soup = BeautifulSoup(res.content.decode('big5', errors='ignore'), 'html.parser')
-            parsed = []
-            for row in soup.find_all('tr'):
-                cols = row.find_all('td')
-                if len(cols) >= 3 and "期" in cols[0].text:
-                    nums = [int(n) for n in re.findall(r'\d+', cols[2].text) if int(n) <= 80]
-                    if len(nums) >= 20:
-                        parsed.append({"期數": "".join(filter(str.isdigit, cols[0].text)), "開獎時間": cols[1].text.strip(), "開出號碼": nums[:20]})
-            if parsed: return parsed[:20], True, "Pilio 樂透 (代理)", ""
-    except Exception: error_logs.append("Pilio失敗")
-
-    # 全敗：回傳防呆資料
+    # 若 10 個全部陣亡，產生防呆資料
     now = datetime.now()
     base_draw = int(now.strftime("%Y%j001")) + ((now.hour * 12) + (now.minute // 5))
     mock_data = [{"期數": str(base_draw - i), "開獎時間": (now - timedelta(minutes=(now.minute % 5) + (i * 5))).strftime("%Y-%m-%d %H:%M"), "開出號碼": random.sample(range(1, 81), 20)} for i in range(20)]
@@ -128,7 +135,7 @@ latest_data_dict = {item['期數']: {"time": item['開獎時間'], "numbers": it
 # ==========================================
 st.markdown("<h1>🎰 Bingo Bingo 全玩法對獎中心</h1>", unsafe_allow_html=True)
 
-# 動態倒數計時器 (獨立執行，不影響 Streamlit Python 狀態)
+# 動態倒數計時器
 components.html("""
     <div style="font-family: sans-serif; text-align: center; padding: 15px; background-color: #0A1931; color: white; border-radius: 10px; margin-bottom: 10px; border: 2px solid #E63946;">
         <span style="font-size: 1.2rem;">⏳ 距離下一期開獎還有：</span>
@@ -152,7 +159,7 @@ components.html("""
     </script>
 """, height=100)
 
-# 功能鍵導航列
+# 導航鍵
 st.markdown("""
 <div style="text-align: center; margin-bottom: 20px;">
     <a href="#bet-section" class="nav-btn">📝 投注設定</a>
@@ -162,8 +169,10 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-if fetch_success: st.success(f"🟢 即時連線正常 | 當前資料來源：{data_source_name}")
-else: st.error(f"🔴 網路斷線警告 | 所有代理皆被擋，顯示模擬資料。詳細錯誤：{error_details}")
+if fetch_success: 
+    st.success(f"🟢 即時連線成功 | 突破防火牆使用：**{data_source_name}**")
+else: 
+    st.error(f"🔴 網路斷線警告 | 10 重連線皆被阻擋。錯誤日誌：{error_details}")
 
 # ==========================================
 # Session State 與彩券保存
@@ -235,7 +244,7 @@ if is_valid_bet and start_draw:
             draw_id = str(int(start_draw) + i)
             if draw_id in latest_data_dict: matched_draws.append((draw_id, latest_data_dict[draw_id]))
     except ValueError:
-        pass # Handle empty safely
+        pass 
 
     if not matched_draws:
         st.warning(f"⚠️ 找不到期數 {start_draw} 的相關資料，請確認是否尚未開獎或輸入錯誤。")
@@ -290,7 +299,7 @@ else:
 st.divider()
 
 # ==========================================
-# 區塊五：最新開獎號碼 (位置往上移)
+# 區塊五：最新開獎號碼
 # ==========================================
 st.markdown("<h3 id='history-section'>📊 近期即時開獎紀錄</h3>", unsafe_allow_html=True)
 col_refresh, col_time = st.columns([1, 4])
@@ -311,7 +320,7 @@ for idx, item in enumerate(latest_draws_list[:4]):
 st.divider()
 
 # ==========================================
-# 區塊六：冷熱號碼分析 (移至最底部)
+# 區塊六：冷熱號碼分析 (最底部)
 # ==========================================
 st.markdown("<h3 id='analysis-section'>🔥 近期冷熱號碼分析</h3>", unsafe_allow_html=True)
 analysis_N = st.slider("分析最近 N 期的號碼", min_value=10, max_value=50, value=20, step=10)
@@ -334,3 +343,4 @@ if all_numbers:
     with chart_col:
         st.markdown("**📈 全號碼分佈圖**")
         st.bar_chart(df_counts.set_index('號碼'), color='#E63946')
+        
