@@ -8,24 +8,40 @@ import random
 import re
 
 # ==========================================
-# 區塊零：網頁設定與台彩風格 CSS
+# 區塊零：網頁設定與「自適應」台彩風格 CSS
 # ==========================================
 st.set_page_config(page_title="Bingo Bingo 智能對獎中心", page_icon="🎰", layout="wide")
 
+# 移除強制文字顏色，讓 Streamlit 自動適應手機的深/淺色模式
 st.markdown("""
 <style>
-    body { color: #0A1931; background-color: #FFFFFF; }
-    h1, h2, h3 { color: #0A1931 !important; border-bottom: 2px solid #E63946; padding-bottom: 10px; }
+    /* 標題加上台彩紅底線 */
+    h1, h2, h3 { border-bottom: 2px solid #E63946; padding-bottom: 10px; }
     h1 { text-align: center; margin-top: -30px; }
+    
+    /* 強調數字使用台彩紅 */
     [data-testid="stMetricValue"] { color: #E63946; font-weight: bold; }
-    div.stButton > button { background-color: #E63946 !important; color: #FFFFFF !important; border-radius: 5px; border: 2px solid #F1C40F !important; font-weight: bold; width: 100%; }
-    div.stButton > button:hover { background-color: #C12A35 !important; border-color: #E0B40D !important; }
-    div.stSelectbox > div, div.stNumberInput > div, div.stTextInput > div { border: 2px solid #0A1931; border-radius: 5px; }
-    div.stMultiSelect div[data-baseweb="tag"] { background-color: #0A1931; color: #FFFFFF; border-radius: 5px; }
-    .stAlert { color: #FFFFFF; }
-    .stSuccess { background-color: #2ECC71 !important; }
-    .stWarning { background-color: #F39C12 !important; }
-    .stError { background-color: #E63946 !important; }
+    
+    /* 按鈕樣式：台彩紅底金字 */
+    div.stButton > button { 
+        background-color: #E63946 !important; 
+        color: #FFFFFF !important; 
+        border-radius: 5px; 
+        border: 2px solid #F1C40F !important; 
+        font-weight: bold; 
+        width: 100%; 
+    }
+    div.stButton > button:hover { 
+        background-color: #C12A35 !important; 
+        border-color: #E0B40D !important; 
+    }
+    
+    /* 警示與資訊框配色 */
+    .stSuccess { background-color: rgba(46, 204, 113, 0.2) !important; }
+    .stWarning { background-color: rgba(243, 156, 18, 0.2) !important; }
+    .stError { background-color: rgba(230, 57, 70, 0.2) !important; }
+    
+    /* 分割線 */
     hr { border-top: 2px solid #E63946; }
 </style>
 """, unsafe_allow_html=True)
@@ -45,16 +61,20 @@ BONUS_PRIZE_TABLE = {
 }
 
 # ==========================================
-# 區塊二：【核心更新】多源備援爬蟲 (嚴禁在此使用 st.toast)
+# 區塊二：多源備援爬蟲 (增強海外 IP 存取與錯誤顯示)
 # ==========================================
 @st.cache_data(ttl=60)
 def fetch_real_bingo_data():
+    # 強化偽裝，模擬真實台灣瀏覽器
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
     }
     
-    # 策略一：台灣彩券官方 API (若官方防爬蟲則會跳到策略二)
+    error_logs = []
+
+    # 策略一：台彩官方 API
     try:
         url_official = "https://api.taiwanlottery.com/TLCAPIWeB/Lottery/BingoResult"
         res = requests.get(url_official, headers=headers, timeout=5)
@@ -68,16 +88,45 @@ def fetch_real_bingo_data():
                     "開出號碼": [int(x) for x in item['drawNumberSize']]
                 })
             if parsed_data:
-                return parsed_data, True, "台彩官方 API"
-    except Exception:
-        pass
+                return parsed_data, True, "台彩官方 API", ""
+        else:
+            error_logs.append(f"官方API異常({res.status_code})")
+    except Exception as e:
+        error_logs.append(f"官方API錯誤")
 
-    # 策略二：Pilio 樂透大數據網 (老牌歷史網站，容錯率高)
+    # 策略二：Lotto-8 海外開獎網 (較不易擋國外 IP)
+    try:
+        url_lotto8 = "https://www.lotto-8.com/taiwan/listbingo.asp"
+        res = requests.get(url_lotto8, headers=headers, timeout=5)
+        if res.status_code == 200:
+            soup = BeautifulSoup(res.content.decode('utf-8', 'ignore'), 'html.parser')
+            parsed_data = []
+            for row in soup.find_all('tr'):
+                cols = row.find_all('td')
+                if len(cols) >= 2 and "期" in cols[0].text:
+                    draw_id = "".join(filter(str.isdigit, cols[0].text))
+                    nums_str = cols[1].text
+                    numbers = [int(n) for n in re.findall(r'\d+', nums_str) if int(n) <= 80]
+                    if len(numbers) >= 20 and draw_id:
+                        parsed_data.append({
+                            "期數": draw_id,
+                            "開獎時間": "已開獎 (來源無提供精確時間)",
+                            "開出號碼": numbers[:20]
+                        })
+            if parsed_data:
+                return parsed_data[:20], True, "Lotto-8 開獎網", ""
+        else:
+            error_logs.append(f"Lotto8異常({res.status_code})")
+    except Exception as e:
+        error_logs.append(f"Lotto8錯誤")
+
+    # 策略三：Pilio 樂透大數據網
     try:
         url_pilio = "https://www.pilio.idv.tw/bingo/list.asp"
         res = requests.get(url_pilio, headers=headers, timeout=5)
         if res.status_code == 200:
-            soup = BeautifulSoup(res.text, 'html.parser')
+            # Pilio 常見為 Big5 編碼
+            soup = BeautifulSoup(res.content.decode('big5', 'ignore'), 'html.parser')
             parsed_data = []
             rows = soup.find_all('tr')
             for row in rows:
@@ -94,11 +143,13 @@ def fetch_real_bingo_data():
                             "開出號碼": numbers[:20]
                         })
             if parsed_data:
-                return parsed_data[:20], True, "Pilio 樂透網"
-    except Exception:
-        pass
+                return parsed_data[:20], True, "Pilio 樂透網", ""
+        else:
+            error_logs.append(f"Pilio異常({res.status_code})")
+    except Exception as e:
+        error_logs.append(f"Pilio錯誤")
 
-    # 若所有網站都抓不到，產生防呆測試資料，避免網頁崩潰
+    # 若全數失敗，產生防呆資料並回傳具體錯誤訊息
     now = datetime.now()
     base_draw = int(now.strftime("%Y%j001")) + ((now.hour * 12) + (now.minute // 5))
     mock_data = []
@@ -110,10 +161,10 @@ def fetch_real_bingo_data():
             "開獎時間": draw_time,
             "開出號碼": random.sample(range(1, 81), 20)
         })
-    return mock_data, False, "所有來源皆無法連線"
+    return mock_data, False, "無", " | ".join(error_logs)
 
-# 取得資料並在主程式中處理 UI 提示
-latest_draws_list, fetch_success, data_source_name = fetch_real_bingo_data()
+# 取得資料
+latest_draws_list, fetch_success, data_source_name, error_details = fetch_real_bingo_data()
 latest_data_dict = {item['期數']: {"time": item['開獎時間'], "numbers": item['開出號碼']} for item in latest_draws_list}
 
 # ==========================================
@@ -141,29 +192,24 @@ def load_ticket(ticket_id):
 
 st.markdown("<h1>🎰 Bingo Bingo 智能對獎中心</h1>", unsafe_allow_html=True)
 
-# 資料來源狀態提示欄 (幫助你了解目前抓取狀況)
+# 資料來源狀態提示欄
 if fetch_success:
     st.success(f"🟢 即時連線正常 | 當前資料來源：{data_source_name}")
 else:
-    st.error(f"🔴 網路斷線警告 | 目前顯示為「系統模擬資料」，請檢查目標網站是否維護中。")
+    st.error(f"🔴 網路斷線警告 | 目標網站可能阻擋了雲端主機連線。詳細錯誤：{error_details}")
 
 st.markdown("<h3>📝 設定「我的號碼」</h3>", unsafe_allow_html=True)
 
 col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
-    st.write("") 
     play_star = st.selectbox("玩法 (星數)", options=list(range(1, 7)), index=2, key="play_star_input", format_func=lambda x: f"{x} 星")
 with col2:
-    st.write("")
     multiplier = st.number_input("倍數", min_value=1, value=4, step=1, key="multiplier_input")
 with col3:
-    st.write("")
     draw_counts = st.number_input("連續期數", min_value=1, value=10, step=1, key="draw_counts_input")
 with col4:
-    st.write("")
     start_draw = st.text_input("起始期數", placeholder="例如: 113000123", key="start_draw_input")
 with col5:
-    st.write("")
     st.write("")
     st.write("")
     is_bonus_active = st.checkbox("💰 啟用加碼獎金", value=False)
@@ -212,7 +258,7 @@ if len(selected_numbers) == play_star and start_draw:
         st.error("期數格式錯誤，請輸入純數字。")
 
     if not matched_draws:
-        st.warning(f"⚠️ 找不到從 {start_draw} 期開始的連續期數資料。可能是輸入期數錯誤，或尚未開獎。")
+        st.warning(f"⚠️ 找不到從 {start_draw} 期開始的連續期數資料。")
     else:
         current_prize_table = BONUS_PRIZE_TABLE if is_bonus_active else NORMAL_PRIZE_TABLE
 
@@ -277,7 +323,7 @@ with cold_col:
     st.dataframe(df_counts.tail(10)[['號碼', '開出次數']].sort_values(by='開出次數'), use_container_width=True, hide_index=True)
 with chart_col:
     st.markdown("**📈 全號碼分佈圖**")
-    st.bar_chart(df_counts.set_index('號碼'), color='#0A1931')
+    st.bar_chart(df_counts.set_index('號碼'), color='#E63946') # 改用台彩紅繪製圖表
 
 st.divider()
 
@@ -299,4 +345,3 @@ for idx, item in enumerate(latest_draws_list[:5]):
         st.markdown(f"**第 {item['期數']} 期**")
         st.caption(f"🕒 {item['開獎時間']}")
         st.info(", ".join([str(n).zfill(2) for n in item['開出號碼']]))
-
