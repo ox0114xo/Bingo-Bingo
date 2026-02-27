@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo Bingo Vercel 終端</title>
+    <title>Bingo Bingo 智能終端 (直連版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .tc-red { color: #E63946; }
         .tc-bg-red { background-color: #E63946; }
         .tc-bg-dark { background-color: #0A1931; }
+        html { scroll-behavior: smooth; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans">
+<body class="bg-gray-50 text-gray-800 font-sans pb-20">
 
     <div class="tc-bg-dark text-white p-4 shadow-md sticky top-0 z-50">
         <h1 class="text-2xl font-bold text-center mb-2">🎰 Bingo Bingo 智能終端</h1>
@@ -23,12 +24,15 @@
 
     <div class="max-w-4xl mx-auto p-4 space-y-6 mt-4">
         
-        <div id="status-box" class="p-3 rounded-lg bg-gray-200 text-center font-bold">
-            🔄 正在連線讀取最新開獎資料...
+        <div id="status-box" class="p-3 rounded-lg bg-gray-200 text-center font-bold shadow animate-pulse">
+            🔄 正在透過 Google 試算表連線讀取資料...
         </div>
 
         <div class="bg-white p-4 rounded-xl shadow border-t-4 border-red-500">
-            <h2 class="text-xl font-bold mb-4 tc-red border-b pb-2">📊 最新開獎號碼</h2>
+            <div class="flex justify-between items-center border-b pb-2 mb-4">
+                <h2 class="text-xl font-bold tc-red">📊 最新開獎號碼</h2>
+                <button onclick="fetchGoogleSheetData()" class="text-sm bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded">🔄 立即刷新</button>
+            </div>
             <div id="draws-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 </div>
         </div>
@@ -39,39 +43,43 @@
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div>
                     <label class="block text-sm font-bold mb-1">玩法(星數)</label>
-                    <select id="star-select" class="w-full border p-2 rounded">
+                    <select id="star-select" class="w-full border p-2 rounded bg-gray-50">
                         <option value="1">1 星</option><option value="2">2 星</option><option value="3" selected>3 星</option>
                         <option value="4">4 星</option><option value="5">5 星</option><option value="6">6 星</option>
+                        <option value="7">7 星</option><option value="8">8 星</option><option value="9">9 星</option><option value="10">10 星</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-sm font-bold mb-1">倍數</label>
-                    <input type="number" id="multiplier" value="4" min="1" class="w-full border p-2 rounded">
+                    <input type="number" id="multiplier" value="4" min="1" class="w-full border p-2 rounded bg-gray-50">
                 </div>
                 <div>
                     <label class="block text-sm font-bold mb-1">連續期數</label>
-                    <input type="number" id="draw-counts" value="10" min="1" class="w-full border p-2 rounded">
+                    <input type="number" id="draw-counts" value="10" min="1" class="w-full border p-2 rounded bg-gray-50">
                 </div>
                 <div>
                     <label class="block text-sm font-bold mb-1">起始期數</label>
-                    <input type="text" id="start-draw" placeholder="例: 113000123" class="w-full border p-2 rounded">
+                    <input type="text" id="start-draw" placeholder="例: 115011756" class="w-full border p-2 rounded bg-gray-50">
                 </div>
             </div>
             
             <div class="mb-4">
-                <label class="block text-sm font-bold mb-1">輸入號碼 (以逗號分隔，例如: 5,12,66)</label>
-                <input type="text" id="user-numbers" placeholder="輸入選號..." class="w-full border p-2 rounded border-blue-900">
+                <label class="block text-sm font-bold mb-1">輸入號碼 (以逗號分隔，例如: 5, 12, 66)</label>
+                <input type="text" id="user-numbers" placeholder="輸入選號..." class="w-full border-2 p-3 rounded-lg border-blue-900 font-bold text-lg tracking-wider">
             </div>
 
-            <button onclick="calculatePrize()" class="tc-bg-red text-white font-bold py-3 px-4 rounded w-full hover:bg-red-700 transition">
+            <button onclick="calculatePrize()" class="tc-bg-red text-white font-bold py-3 px-4 rounded-lg w-full hover:bg-red-700 transition text-lg shadow-lg">
                 🎯 立即對獎
             </button>
             
-            <div id="result-box" class="mt-4 p-4 rounded-lg hidden"></div>
+            <div id="result-box" class="mt-6 p-4 rounded-lg hidden shadow-inner border"></div>
         </div>
     </div>
 
     <script>
+        // 你專屬的 Google Sheet CSV API 網址！
+        const GOOGLE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7ZS9Nt-Y0kMHr_6lNy5FcMeYRn1_MVkmN_E3SuFDSxm7QkVT76NmeLkCWJNrR24U8XVtdTtn8IQc3/pub?output=csv";
+
         // 倒數計時器邏輯
         function updateTime() {
             let now = new Date();
@@ -89,37 +97,62 @@
         let globalBingoData = [];
         const PRIZE_TABLE = {
             1: {1: 50}, 2: {2: 75}, 3: {3: 500, 2: 50}, 4: {4: 1000, 3: 100, 2: 25},
-            5: {5: 7500, 4: 500, 3: 50}, 6: {6: 25000, 5: 1000, 4: 200, 3: 25}
+            5: {5: 7500, 4: 500, 3: 50}, 6: {6: 25000, 5: 1000, 4: 200, 3: 25},
+            7: {7: 80000, 6: 3000, 5: 300, 4: 50, 3: 25}, 8: {8: 500000, 7: 20000, 6: 1000, 5: 400, 4: 100, 0: 25},
+            9: {9: 1000000, 8: 100000, 7: 3000, 6: 500, 5: 100, 4: 25, 0: 25}, 10: {10: 5000000, 9: 250000, 8: 25000, 7: 2500, 6: 250, 5: 25, 0: 25}
         };
 
-        // 從 Vercel API 抓取資料
-        async function fetchBingoData() {
+        // 解析 Google 試算表 CSV 的引擎
+        async function fetchGoogleSheetData() {
             try {
-                // 呼叫同網域下的 api/bingo.py Serverless 函數
-                const response = await fetch('/api/bingo');
-                const result = await response.json();
+                // 加上時間戳防止瀏覽器快取舊資料
+                const response = await fetch(GOOGLE_CSV_URL + "&t=" + new Date().getTime());
+                const csvText = await response.text();
                 
-                if(result.success && result.data.length > 0) {
-                    globalBingoData = result.data;
-                    document.getElementById('status-box').className = "p-3 rounded-lg bg-green-100 text-green-800 text-center font-bold";
-                    document.getElementById('status-box').innerHTML = `🟢 連線正常 | 已取得最新 ${globalBingoData.length} 期資料`;
+                const lines = csvText.trim().split('\\n');
+                let tempData = [];
+                
+                // 從第二行開始讀取 (跳過標題)
+                for(let i = 1; i < lines.length; i++) {
+                    let line = lines[i].trim();
+                    if(!line) continue;
                     
-                    // 自動填入最新一期作為預設起始期數
-                    document.getElementById('start-draw').value = globalBingoData[globalBingoData.length - 1].draw_id;
+                    // 解析 CSV 格式 (期數, 時間, "號碼, 號碼...")
+                    let firstComma = line.indexOf(',');
+                    let secondComma = line.indexOf(',', firstComma + 1);
+                    
+                    let draw_id = line.substring(0, firstComma).trim();
+                    let time = line.substring(firstComma + 1, secondComma).trim();
+                    // 去除號碼外圍的雙引號
+                    let numbersStr = line.substring(secondComma + 1).replace(/(^"|"$)/g, ''); 
+                    let numbers = numbersStr.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+                    
+                    if(numbers.length === 20 && draw_id) {
+                        tempData.push({ draw_id, time, numbers });
+                    }
+                }
 
-                    // 渲染號碼卡片
+                if(tempData.length > 0) {
+                    globalBingoData = tempData;
+                    document.getElementById('status-box').className = "p-3 rounded-lg bg-green-100 text-green-800 text-center font-bold shadow";
+                    document.getElementById('status-box').innerHTML = `🟢 完美連線 | 試算表目前儲存了 ${globalBingoData.length} 期資料`;
+                    
+                    // 自動填入最新一期
+                    document.getElementById('start-draw').value = globalBingoData[0].draw_id;
+
+                    // 渲染號碼卡片 (顯示最新 6 期)
                     let html = '';
                     globalBingoData.slice(0, 6).forEach(draw => {
                         let nums = draw.numbers.map(n => String(n).padStart(2, '0')).join(', ');
-                        html += `<div class="p-3 border rounded-lg bg-gray-50"><div class="font-bold tc-red">第 ${draw.draw_id} 期 <span class="text-xs text-gray-500 font-normal ml-2">${draw.time}</span></div><div class="mt-2 text-lg font-mono tracking-widest">${nums}</div></div>`;
+                        html += `<div class="p-4 border rounded-xl bg-white shadow-sm hover:shadow-md transition"><div class="font-bold tc-red text-lg mb-1">第 ${draw.draw_id} 期 <span class="text-sm text-gray-500 font-normal ml-2">🕒 ${draw.time}</span></div><div class="text-lg font-mono tracking-widest leading-relaxed text-gray-800 bg-gray-50 p-2 rounded">${nums}</div></div>`;
                     });
                     document.getElementById('draws-container').innerHTML = html;
                 } else {
-                    throw new Error("API 無回傳有效資料");
+                    throw new Error("試算表內尚無有效資料");
                 }
             } catch (error) {
-                document.getElementById('status-box').className = "p-3 rounded-lg bg-red-100 text-red-800 text-center font-bold";
-                document.getElementById('status-box').innerHTML = `🔴 網路異常或遭到阻擋，請稍後重試。`;
+                document.getElementById('status-box').className = "p-3 rounded-lg bg-red-100 text-red-800 text-center font-bold shadow animate-pulse";
+                document.getElementById('status-box').innerHTML = `🔴 無法讀取試算表，請確認 Google Sheet 是否設定為公開並發佈。`;
             }
         }
 
@@ -129,48 +162,76 @@
             const mult = parseInt(document.getElementById('multiplier').value);
             const counts = parseInt(document.getElementById('draw-counts').value);
             const startId = parseInt(document.getElementById('start-draw').value);
-            const userNums = document.getElementById('user-numbers').value.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+            
+            // 清理使用者輸入的號碼
+            const userNums = document.getElementById('user-numbers').value
+                .replace(/\\s+/g, '')
+                .split(/[,，、]/) // 支援中英文逗號與頓號
+                .map(n => parseInt(n))
+                .filter(n => !isNaN(n));
 
             const resBox = document.getElementById('result-box');
             resBox.classList.remove('hidden');
 
             if(userNums.length !== star) {
-                resBox.className = "mt-4 p-4 rounded-lg bg-red-100 text-red-800 border border-red-300";
-                resBox.innerHTML = `⚠️ 錯誤：您選擇了 ${star} 星玩法，但輸入了 ${userNums.length} 個號碼。`;
+                resBox.className = "mt-6 p-4 rounded-lg bg-red-50 text-red-800 border border-red-300 shadow-inner";
+                resBox.innerHTML = `⚠️ 錯誤：您選擇了 ${star} 星玩法，但目前輸入了 ${userNums.length} 個有效數字。<br>請確保數字之間用逗號隔開。`;
                 return;
             }
 
             let totalPrize = 0;
             let matchLog = [];
 
+            // 從起始期數往後推算
             for(let i=0; i<counts; i++) {
                 let targetId = String(startId + i);
                 let drawData = globalBingoData.find(d => d.draw_id === targetId);
+                
                 if(drawData) {
                     let matched = userNums.filter(n => drawData.numbers.includes(n));
-                    let basePrize = (PRIZE_TABLE[star][matched.length] || 0);
+                    let matchCount = matched.length;
+                    let basePrize = (PRIZE_TABLE[star][matchCount] || 0);
                     let finalPrize = basePrize * mult;
                     totalPrize += finalPrize;
-                    matchLog.push(`<div class="border-b py-2 flex justify-between"><span>第 ${targetId} 期：中 ${matched.length} 個</span> <span class="font-bold text-red-600">$${finalPrize}</span></div>`);
+                    
+                    let matchNumStr = matched.length > 0 ? `(${matched.map(n=>String(n).padStart(2,'0')).join(', ')})` : '';
+                    let prizeClass = finalPrize > 0 ? "font-bold text-red-600 text-lg" : "text-gray-500";
+                    let rowBg = finalPrize > 0 ? "bg-red-50" : "bg-white";
+                    
+                    matchLog.push(`<div class="border-b px-3 py-3 flex justify-between items-center ${rowBg}">
+                        <span>第 ${targetId} 期：中 ${matchCount} 顆 <span class="text-xs text-gray-500">${matchNumStr}</span></span> 
+                        <span class="${prizeClass}">$${finalPrize}</span>
+                    </div>`);
+                } else {
+                    matchLog.push(`<div class="border-b px-3 py-3 flex justify-between items-center bg-gray-50 text-gray-400">
+                        <span>第 ${targetId} 期：尚未開獎或查無資料</span> 
+                        <span>--</span>
+                    </div>`);
                 }
             }
 
             let totalCost = 25 * mult * counts;
             let profit = totalPrize - totalCost;
-            let profitHtml = profit > 0 ? `<span class="text-green-600 font-bold">淨賺 $${profit}</span>` : `<span class="text-red-600 font-bold">淨損 $${profit}</span>`;
+            let profitHtml = profit > 0 
+                ? `<span class="text-green-600 font-bold bg-green-100 px-2 py-1 rounded">淨賺 $${profit}</span>` 
+                : `<span class="text-gray-600 font-bold">淨損 $${profit}</span>`;
 
-            resBox.className = "mt-4 p-4 rounded-lg bg-blue-50 border border-blue-200";
+            resBox.className = "mt-6 p-5 rounded-xl bg-blue-50 border border-blue-200 shadow-inner";
             resBox.innerHTML = `
-                <h3 class="font-bold text-lg mb-2">對獎結算 (成本: $${totalCost})</h3>
-                <div class="text-2xl font-bold mb-4">總獲得獎金：<span class="tc-red">$${totalPrize}</span> (${profitHtml})</div>
-                <div class="h-48 overflow-y-auto bg-white p-2 rounded text-sm">${matchLog.join('') || '找不到對應期數的資料'}</div>
+                <h3 class="font-bold text-xl mb-3 text-blue-900 border-b border-blue-200 pb-2">結算明細表 <span class="text-sm font-normal text-gray-500">(總成本: $${totalCost})</span></h3>
+                <div class="text-2xl font-bold mb-4 flex items-center gap-4">
+                    總獲得獎金：<span class="tc-red text-3xl">$${totalPrize}</span> ${profitHtml}
+                </div>
+                <div class="max-h-64 overflow-y-auto bg-white rounded-lg border shadow-sm text-sm">${matchLog.join('')}</div>
             `;
+            
+            // 自動滾動到結果區
+            resBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
         }
 
-        // 網頁載入後馬上抓資料，並且每 60 秒背景刷新
-        fetchBingoData();
-        setInterval(fetchBingoData, 60000);
+        // 網頁載入後馬上抓資料，並且每 30 秒背景刷新一次 Google Sheet
+        fetchGoogleSheetData();
+        setInterval(fetchGoogleSheetData, 30000);
     </script>
 </body>
 </html>
-
