@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bingo Bingo 數據終端 V2</title>
+    <title>Bingo Bingo 終端 - 修復版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background: #0F172A; color: #F1F5F9; font-family: sans-serif; }
@@ -11,12 +11,11 @@
         .card { background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255,255,255,0.05); border-radius: 20px; }
         .ball-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
         .ball { aspect-ratio: 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 900; background: #334155; color: #FACC15; border: 1px solid #475569; }
-        /* 超級獎號專屬顏色 */
         .ball-super { background: #EF4444 !important; color: white !important; border-color: #F87171 !important; box-shadow: 0 0 8px rgba(239, 68, 68, 0.5); }
         .nav-item.active { color: #FACC15; border-bottom: 3px solid #FACC15; font-weight: 900; }
         input, select { background: #1E293B !important; color: white !important; border: 1px solid #334155 !important; border-radius: 8px !important; }
-        .num-btn.selected { background: #3B82F6 !important; border-color: #60A5FA !important; transform: scale(1.1); }
-        .super-btn.selected { background: #EF4444 !important; border-color: #FACC15 !important; transform: scale(1.1); box-shadow: 0 0 10px rgba(239, 68, 68, 0.5); }
+        .num-btn.selected { background: #3B82F6 !important; border-color: #60A5FA !important; }
+        .super-btn.selected { background: #EF4444 !important; border-color: #FACC15 !important; }
     </style>
 </head>
 <body class="pb-10">
@@ -27,8 +26,8 @@
             <button onclick="show('hist')" id="t-hist" class="nav-item pb-1">開獎紀錄</button>
             <button onclick="show('stats')" id="t-stats" class="nav-item pb-1">數據大盤</button>
         </div>
-        <div id="countdown-bar" class="bg-red-600 px-4 py-1.5 flex justify-between items-center text-white">
-            <span class="text-[10px] font-black italic">BINGO COUNTDOWN</span>
+        <div id="countdown-bar" class="px-4 py-1.5 flex justify-between items-center text-white transition-colors duration-500">
+            <span class="text-[10px] font-black italic" id="timer-label">BINGO COUNTDOWN</span>
             <span id="timer" class="text-2xl font-black font-mono">--:--</span>
         </div>
     </nav>
@@ -38,54 +37,26 @@
             <div class="card p-5 space-y-6">
                 <div class="grid grid-cols-2 gap-3 p-4 bg-black/40 rounded-2xl border border-white/5">
                     <div>
-                        <label class="text-[10px] text-gray-500 block mb-1 font-bold">開獎日期</label>
+                        <label class="text-[10px] text-gray-500 block mb-1 font-bold">日期</label>
                         <input type="date" id="start-d" onchange="syncFromDateTime()" class="w-full p-2 text-center text-sm font-bold">
                     </div>
                     <div>
-                        <label class="text-[10px] text-gray-500 block mb-1 font-bold">時間選擇</label>
+                        <label class="text-[10px] text-gray-500 block mb-1 font-bold">時間</label>
                         <select id="start-t" onchange="syncFromDateTime()" class="w-full p-2 text-center text-sm font-bold"></select>
                     </div>
                     <div class="col-span-2">
-                        <label class="text-[10px] text-gray-500 block mb-1 font-bold">開獎期數</label>
-                        <input type="text" id="start-p" oninput="syncFromPeriod()" class="w-full p-2 text-center text-yellow-400 font-black text-lg tracking-widest">
+                        <label class="text-[10px] text-gray-500 block mb-1 font-bold">期數</label>
+                        <input type="text" id="start-p" oninput="syncFromPeriod()" class="w-full p-2 text-center text-yellow-400 font-black text-lg">
                     </div>
                 </div>
 
-                <div>
-                    <label class="text-xs font-bold text-gray-400 mb-2 block flex justify-between">
-                        <span>🔵 一般選號</span>
-                        <span id="bet-count" class="text-blue-400">已選 0 個</span>
-                    </label>
-                    <div class="grid grid-cols-8 gap-1.5" id="num-grid"></div>
-                </div>
-
+                <div class="grid grid-cols-8 gap-1.5" id="num-grid"></div>
                 <div class="pt-4 border-t border-white/5">
-                    <label class="text-xs font-bold text-red-400 mb-2 block flex justify-between">
-                        <span>🔴 超級獎號預測 (可不選)</span>
-                        <span id="super-val" class="text-red-500">未選擇</span>
-                    </label>
+                    <label class="text-xs font-bold text-red-400 mb-2 block">🔴 超級獎號預測</label>
                     <div class="grid grid-cols-8 gap-1.5" id="super-grid"></div>
                 </div>
 
-                <div class="grid grid-cols-3 gap-2 text-center">
-                    <div>
-                        <label class="text-[10px] font-bold text-gray-400 mb-1 block">玩法</label>
-                        <select id="stars" class="w-full p-3 text-xs font-bold text-yellow-500">
-                            <option value="1">1星</option><option value="2">2星</option><option value="3" selected>3星</option>
-                            <option value="4">4星</option><option value="5">5星</option><option value="6">6星</option>
-                            <option value="7">7星</option><option value="8">8星</option><option value="9">9星</option><option value="10">10星</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-bold text-gray-400 mb-1 block">倍數</label>
-                        <input type="number" id="mult" value="1" min="1" class="w-full p-3 text-xs text-center font-bold">
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-bold text-gray-400 mb-1 block">連續期數</label>
-                        <input type="number" id="cons" value="1" min="1" class="w-full p-3 text-xs text-center font-bold">
-                    </div>
-                </div>
-                <button onclick="runCheck()" class="w-full py-4 rounded-xl bg-gold font-black text-lg shadow-lg active:scale-95 transition">🎯 立即對獎</button>
+                <button onclick="runCheck()" class="w-full py-4 rounded-xl bg-gold font-black text-lg">🎯 立即對獎</button>
             </div>
             <div id="res-box" class="hidden card p-5 border-t-4 border-yellow-500"></div>
         </section>
@@ -93,18 +64,9 @@
         <section id="sec-hist" class="hidden space-y-4">
             <div class="card p-4 flex items-center justify-between gap-4">
                 <span class="text-sm font-bold text-gray-400">選擇日期</span>
-                <input type="date" id="hist-d" onchange="renderHistory()" class="flex-1 p-2 text-center font-bold">
+                <select id="hist-date-select" onchange="renderHistory()" class="flex-1 p-2 text-center font-bold"></select>
             </div>
             <div id="history-list" class="space-y-4"></div>
-        </section>
-
-        <section id="sec-stats" class="hidden space-y-4">
-            <div class="card p-4">
-                <table class="w-full text-left text-xs">
-                    <thead><tr class="text-gray-500 border-b border-white/10"><th class="py-2">號碼</th><th onclick="renderStats('gap')">遺漏 ↕</th><th onclick="renderStats('hot')">次數 ↕</th></tr></thead>
-                    <tbody id="stats-list" class="divide-y divide-white/5"></tbody>
-                </table>
-            </div>
         </section>
     </div>
 
@@ -127,52 +89,25 @@
                 }
             }
             
-            // 生成一般號碼網格
+            // 生成號碼網格
             const g = document.getElementById('num-grid');
-            for(let i=1; i<=80; i++) {
-                let b = document.createElement('button'); 
-                b.innerText = String(i).padStart(2,'0'); 
-                b.className = "aspect-square rounded-lg bg-[#1E293B] border border-[#334155] font-bold text-[10px] text-gray-400";
-                b.onclick = () => toggleNum(i, b);
-                g.appendChild(b);
-            }
-
-            // 生成超級獎號網格
             const sg = document.getElementById('super-grid');
             for(let i=1; i<=80; i++) {
-                let b = document.createElement('button'); 
-                b.innerText = String(i).padStart(2,'0'); 
-                b.className = "aspect-square rounded-lg bg-[#1E293B] border border-[#334155] font-bold text-[10px] text-red-900";
-                b.onclick = () => toggleSuper(i, b);
-                sg.appendChild(b);
+                let n = String(i).padStart(2,'0');
+                // 一般球
+                let b1 = document.createElement('button'); b1.innerText = n; 
+                b1.className = "aspect-square rounded-lg bg-[#1E293B] border border-[#334155] font-bold text-[10px]";
+                b1.onclick = () => { if(sel.includes(i)) { sel=sel.filter(x=>x!==i); b1.classList.remove('num-btn','selected'); } else { sel.push(i); b1.classList.add('num-btn','selected'); } };
+                g.appendChild(b1);
+                // 超級球
+                let b2 = document.createElement('button'); b2.innerText = n;
+                b2.className = "aspect-square rounded-lg bg-[#1E293B] border border-[#334155] font-bold text-[10px] text-red-900";
+                b2.onclick = () => { document.querySelectorAll('#super-grid button').forEach(x=>x.classList.remove('super-btn','selected')); superSel=i; b2.classList.add('super-btn','selected'); };
+                sg.appendChild(b2);
             }
 
             refresh(); 
             setInterval(timer, 1000);
-        }
-
-        function toggleNum(i, btn) {
-            const lim = parseInt(document.getElementById('stars').value);
-            if(sel.includes(i)) {
-                sel = sel.filter(x => x !== i);
-                btn.classList.remove('num-btn', 'selected');
-            } else if(sel.length < lim) {
-                sel.push(i);
-                btn.classList.add('num-btn', 'selected');
-            }
-            document.getElementById('bet-count').innerText = `已選 ${sel.length} 個`;
-        }
-
-        function toggleSuper(i, btn) {
-            document.querySelectorAll('#super-grid button').forEach(b => b.classList.remove('super-btn', 'selected'));
-            if(superSel === i) {
-                superSel = null;
-                document.getElementById('super-val').innerText = "未選擇";
-            } else {
-                superSel = i;
-                btn.classList.add('super-btn', 'selected');
-                document.getElementById('super-val').innerText = `已選 ${String(i).padStart(2,'0')}`;
-            }
         }
 
         async function refresh() {
@@ -186,70 +121,54 @@
                 }).filter(x => x && x.nums.length === 20);
                 
                 if(db.length > 0) {
-                    const latestDate = db[0].date;
-                    document.getElementById('hist-d').value = latestDate;
-                    document.getElementById('start-d').value = latestDate;
+                    // 更新日期選單
+                    const dates = [...new Set(db.map(x => x.date))];
+                    const ds = document.getElementById('hist-date-select');
+                    ds.innerHTML = '';
+                    dates.forEach(d => ds.add(new Option(d, d)));
+                    
+                    // 預設為最新一期
                     document.getElementById('start-p').value = db[0].id;
                     syncFromPeriod();
+                    renderHistory();
                 }
-                renderHistory();
             } catch (e) {}
         }
 
         function renderHistory() {
-            const filterDate = document.getElementById('hist-d').value;
-            let h = ''; 
+            const filterDate = document.getElementById('hist-date-select').value;
             const filtered = db.filter(x => x.date === filterDate);
-            
+            let h = ''; 
             filtered.forEach(d => {
-                let balls = d.nums.map(n => {
-                    const isSuper = n === d.super;
-                    return `<div class="ball ${isSuper ? 'ball-super' : ''}">${String(n).padStart(2,'0')}</div>`;
-                }).join('');
-                
+                let balls = d.nums.map(n => `<div class="ball ${n === d.super ? 'ball-super' : ''}">${String(n).padStart(2,'0')}</div>`).join('');
                 h += `<div class="bg-black/30 p-4 rounded-2xl border border-white/5 space-y-3">
                     <div class="flex justify-between items-center text-[10px] font-black text-gray-500">
-                        <span>${d.date} | 期數 ${d.id} | 🕒 ${d.time}</span>
+                        <span>期數 ${d.id} | 🕒 ${d.time}</span>
                         ${d.bonus ? '<span class="bg-gold px-1.5 rounded text-black font-black text-[8px]">加碼</span>' : ''}
                     </div>
                     <div class="ball-grid">${balls}</div>
-                    <div class="text-[10px] text-red-500 font-bold">超級獎號: ${String(d.super).padStart(2,'0')}</div>
                 </div>`;
             });
             document.getElementById('history-list').innerHTML = h || `<div class='text-center p-10 text-gray-500'>${filterDate} 無開獎紀錄</div>`;
         }
 
-        function runCheck() {
-            const startP = parseInt(document.getElementById('start-p').value);
-            const cons = parseInt(document.getElementById('cons').value);
-            const star = parseInt(document.getElementById('stars').value);
-            if (sel.length !== star) { alert(`請選滿 ${star} 個號碼`); return; }
-
-            const box = document.getElementById('res-box');
-            box.classList.remove('hidden');
-            let html = `<div class="font-black text-yellow-500 mb-2 text-lg">對獎報告</div>`;
+        function timer() {
+            let n = new Date(); let h = n.getHours(), m = n.getMinutes(), s = n.getSeconds();
+            let bar = document.getElementById('countdown-bar'), lbl = document.getElementById('timer-label');
             
-            for (let i = 0; i < cons; i++) {
-                let tid = (startP + i).toString();
-                let r = db.find(x => x.id === tid);
-                if (r) {
-                    let hits = sel.filter(n => r.nums.includes(n));
-                    let superHit = superSel === r.super;
-                    html += `<div class="mb-3 p-3 bg-black/30 rounded-lg border border-white/5">
-                        <div class="text-xs font-bold text-gray-400">期數 ${tid}</div>
-                        <div class="text-sm font-bold ${hits.length >= 1 ? 'text-green-400' : 'text-gray-500'}">
-                            一般命中: ${hits.length} 球 (${hits.join(', ') || '無'})
-                        </div>
-                        <div class="text-sm font-bold ${superHit ? 'text-red-500' : 'text-gray-500'}">
-                            超級獎號: ${superHit ? '⭐ 命中 ' + r.super : '未中 (開 ' + r.super + ')'}
-                        </div>
-                    </div>`;
-                }
+            // 🛑 修正後的休市判斷邏輯
+            if (h < 7 || (h === 7 && m < 5) || (h === 23 && m > 55) || h > 23) {
+                document.getElementById('timer').innerText = "休市中";
+                lbl.innerText = "BINGO CLOSED";
+                bar.className = "bg-gray-800 px-4 py-1.5 flex justify-between items-center text-white";
+            } else {
+                let remM = 4 - (m % 5), remS = 59 - s;
+                document.getElementById('timer').innerText = `${String(remM).padStart(2,'0')}:${String(remS).padStart(2,'0')}`;
+                lbl.innerText = "BINGO COUNTDOWN";
+                bar.className = "bg-red-600 px-4 py-1.5 flex justify-between items-center text-white";
             }
-            box.innerHTML = html;
         }
 
-        // --- 同步與計時邏輯 ---
         function syncFromPeriod() {
             let p = parseInt(document.getElementById('start-p').value);
             if (isNaN(p) || p < BASE_PERIOD) return;
@@ -268,15 +187,8 @@
             document.getElementById('start-p').value = BASE_PERIOD + (diffDays * 203) + idx;
         }
 
-        function timer() {
-            let n = new Date(); let m = n.getMinutes(), s = n.getSeconds();
-            let remM = 4 - (m % 5), remS = 59 - s;
-            document.getElementById('timer').innerText = `${String(remM).padStart(2,'0')}:${String(remS).padStart(2,'0')}`;
-        }
-
-        function show(id) { ['bet','hist','stats'].forEach(x => { document.getElementById(`sec-${x}`).classList.toggle('hidden', x !== id); document.getElementById(`t-${x}`).classList.toggle('active', x === id); }); }
+        function show(id) { ['bet','hist'].forEach(x => { document.getElementById(`sec-${x}`).classList.toggle('hidden', x !== id); document.getElementById(`t-${x}`).classList.toggle('active', x === id); }); }
         window.onload = init;
     </script>
 </body>
 </html>
-
