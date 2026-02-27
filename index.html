@@ -3,120 +3,305 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo Bingo 智能終端</title>
+    <title>Bingo Bingo 終極全玩法終端</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .tc-red { color: #E63946; }
         .tc-bg-red { background-color: #E63946; }
         .tc-bg-dark { background-color: #0A1931; }
+        .num-btn.selected { background-color: #E63946; color: white; border-color: #F1C40F; transform: scale(1.1); }
+        .tab-active { border-bottom: 4px solid #F1C40F; color: #F1C40F; font-weight: bold; }
+        html { scroll-behavior: smooth; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 pb-20">
+<body class="bg-gray-100 text-gray-800 pb-10">
 
-    <div class="tc-bg-dark text-white p-4 shadow-md sticky top-0 z-50">
-        <h1 class="text-2xl font-bold text-center mb-2">🎰 Bingo Bingo 智能終端</h1>
-        <div class="flex justify-center items-center gap-4 text-xl">
-            <span>⏳ 下期開獎倒數：</span>
+    <nav class="tc-bg-dark text-white sticky top-0 z-50 shadow-xl">
+        <div class="flex justify-around items-center p-3 text-sm font-bold">
+            <a href="#bet-section" class="tab-active py-1 px-2">🎯 投注對獎</a>
+            <a href="#history-section" class="py-1 px-2">📊 開獎紀錄</a>
+            <a href="#stats-section" class="py-1 px-2">🔥 冷熱趨勢</a>
+        </div>
+        <div class="bg-blue-900/50 p-2 flex justify-center items-center gap-4 border-t border-white/10">
+            <span class="text-xs">⏳ 下期開獎倒數：</span>
             <span id="timer" class="text-yellow-400 font-mono font-bold text-2xl">--:--</span>
         </div>
-    </div>
+    </nav>
 
-    <div class="max-w-4xl mx-auto p-4 space-y-6 mt-4">
-        <div id="status-box" class="p-3 rounded-lg bg-gray-200 text-center font-bold shadow animate-pulse">
-            🔄 正在讀取 Google 試算表資料...
+    <div class="max-w-5xl mx-auto p-4 space-y-6">
+        
+        <div id="status-box" class="p-3 rounded-xl bg-white text-center font-bold shadow-sm border text-gray-500">
+            🔄 讀取 Google 試算表資料中...
         </div>
 
-        <div class="bg-white p-4 rounded-xl shadow border-t-4 border-red-500">
-            <h2 class="text-xl font-bold mb-4 tc-red border-b pb-2">📊 最新開獎號碼</h2>
-            <div id="draws-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        <div id="bet-section" class="bg-white rounded-2xl shadow-lg border-t-8 border-red-600 overflow-hidden">
+            <div class="p-5 bg-red-50 border-b">
+                <h2 class="text-2xl font-black tc-red flex items-center gap-2">📝 投注與對獎試算</h2>
+            </div>
+            
+            <div class="p-5 space-y-6">
+                <div class="grid grid-cols-3 gap-2 p-1 bg-gray-100 rounded-xl">
+                    <button onclick="changeMode('star')" id="btn-star" class="py-2 rounded-lg font-bold bg-white shadow">星號</button>
+                    <button onclick="changeMode('bs')" id="btn-bs" class="py-2 rounded-lg font-bold text-gray-500">大小</button>
+                    <button onclick="changeMode('oe')" id="btn-oe" class="py-2 rounded-lg font-bold text-gray-500">單雙</button>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div id="star-select-div">
+                        <label class="block text-xs font-bold text-gray-500 mb-1">玩法星數</label>
+                        <select id="star-select" onchange="resetSelection()" class="w-full border p-3 rounded-xl bg-gray-50 font-bold">
+                            <option value="1">1星</option><option value="2">2星</option><option value="3" selected>3星</option>
+                            <option value="4">4星</option><option value="5">5星</option><option value="6">6星</option>
+                            <option value="7">7星</option><option value="8">8星</option><option value="9">9星</option><option value="10">10星</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">倍數</label>
+                        <input type="number" id="multiplier" value="4" min="1" class="w-full border p-3 rounded-xl bg-gray-50 font-bold text-center">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">連續期數</label>
+                        <input type="number" id="draw-counts" value="10" min="1" class="w-full border p-3 rounded-xl bg-gray-50 font-bold text-center">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">起始期數</label>
+                        <input type="text" id="start-draw" placeholder="例: 115011765" class="w-full border p-3 rounded-xl bg-gray-50 font-bold text-center">
+                    </div>
+                </div>
+
+                <div id="star-picker-div">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-bold">挑選號碼 (點擊選擇)</span>
+                        <span id="select-count" class="tc-red font-bold text-sm">已選 0 個</span>
+                    </div>
+                    <div id="num-grid" class="grid grid-cols-10 gap-1 sm:gap-2">
+                        </div>
+                </div>
+
+                <div id="bs-oe-picker-div" class="hidden">
+                    <label class="block text-sm font-bold mb-2">請選擇投注項</label>
+                    <div id="bs-options" class="grid grid-cols-2 gap-4">
+                        <button onclick="pickOption('大')" class="opt-btn p-4 border-2 rounded-xl font-bold">大 (41~80)</button>
+                        <button onclick="pickOption('小')" class="opt-btn p-4 border-2 rounded-xl font-bold">小 (01~40)</button>
+                    </div>
+                    <div id="oe-options" class="hidden grid grid-cols-5 gap-1">
+                        <button onclick="pickOption('單')" class="opt-btn p-2 border rounded-lg text-xs font-bold">單</button>
+                        <button onclick="pickOption('雙')" class="opt-btn p-2 border rounded-lg text-xs font-bold">雙</button>
+                        <button onclick="pickOption('小單')" class="opt-btn p-2 border rounded-lg text-xs font-bold">小單</button>
+                        <button onclick="pickOption('小雙')" class="opt-btn p-2 border rounded-lg text-xs font-bold">小雙</button>
+                        <button onclick="pickOption('和')" class="opt-btn p-2 border rounded-lg text-xs font-bold">和</button>
+                    </div>
+                </div>
+
+                <button onclick="calculatePrize()" class="tc-bg-red text-white font-black py-4 px-4 rounded-2xl w-full text-xl shadow-lg active:scale-95 transition-transform">
+                    🎯 立即對獎
+                </button>
+                
+                <div id="result-box" class="hidden rounded-2xl overflow-hidden"></div>
+            </div>
         </div>
 
-        <div class="bg-white p-4 rounded-xl shadow border-t-4 border-blue-900">
-            <h2 class="text-xl font-bold mb-4 text-blue-900 border-b pb-2">📝 投注與對獎試算</h2>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <div><label class="block text-sm font-bold mb-1">玩法</label><select id="star-select" class="w-full border p-2 rounded"><option value="1">1星</option><option value="2">2星</option><option value="3" selected>3星</option><option value="4">4星</option><option value="5">5星</option><option value="6">6星</option></select></div>
-                <div><label class="block text-sm font-bold mb-1">倍數</label><input type="number" id="multiplier" value="4" class="w-full border p-2 rounded"></div>
-                <div><label class="block text-sm font-bold mb-1">連續期數</label><input type="number" id="draw-counts" value="10" class="w-full border p-2 rounded"></div>
-                <div><label class="block text-sm font-bold mb-1">起始期數</label><input type="text" id="start-draw" class="w-full border p-2 rounded"></div>
+        <div id="history-section" class="bg-white rounded-2xl shadow p-5 border-l-8 border-gray-400">
+            <h2 class="text-xl font-bold mb-4 flex items-center gap-2">📊 近期開獎紀錄</h2>
+            <div id="draws-container" class="space-y-3"></div>
+        </div>
+
+        <div id="stats-section" class="bg-white rounded-2xl shadow p-5 border-l-8 border-yellow-500">
+            <h2 class="text-xl font-bold mb-4">🔥 數據統計 (最新200期)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="font-bold text-red-600 mb-2">最熱門號碼 Top 10</h3>
+                    <div id="hot-nums" class="space-y-1"></div>
+                </div>
+                <div>
+                    <h3 class="font-bold text-blue-600 mb-2">最冷門號碼 Top 10</h3>
+                    <div id="cold-nums" class="space-y-1"></div>
+                </div>
             </div>
-            <div class="mb-4">
-                <label class="block text-sm font-bold mb-1">輸入號碼 (用逗號隔開)</label>
-                <input type="text" id="user-numbers" placeholder="例: 5, 12, 66" class="w-full border-2 p-3 rounded-lg border-blue-900 font-bold text-lg">
-            </div>
-            <button onclick="calculatePrize()" class="tc-bg-red text-white font-bold py-3 px-4 rounded-lg w-full text-lg shadow-lg">🎯 立即對獎</button>
-            <div id="result-box" class="mt-6 p-4 rounded-lg hidden border"></div>
         </div>
     </div>
 
     <script>
-        // 🌟 寶貝提供的正確 CSV 網址
-        const GOOGLE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7ZS9Nt-Y0kMHr_6lNy5FcMeYRn1_MVkmN_E3SuFDSxm7QkVT76NmeLkCWJNrR24U8XVtdTtn8IQc3/pub?gid=1857522434&single=true&output=csv";
-
-        function updateTime() {
-            let now = new Date();
-            let nextMin = Math.ceil((now.getMinutes() + 1) / 5) * 5;
-            let remainMin = nextMin - now.getMinutes() - 1;
-            let remainSec = 60 - now.getSeconds();
-            if(remainSec === 60) { remainMin += 1; remainSec = 0; }
-            document.getElementById('timer').innerText = String(remainMin).padStart(2, '0') + ":" + String(remainSec).padStart(2, '0');
-        }
-        setInterval(updateTime, 1000); updateTime();
+        // 妳專屬的 CSV 網址
+        const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7ZS9Nt-Y0kMHr_6lNy5FcMeYRn1_MVkmN_E3SuFDSxm7QkVT76NmeLkCWJNrR24U8XVtdTtn8IQc3/pub?gid=1857522434&single=true&output=csv";
 
         let globalBingoData = [];
-        const PRIZE_TABLE = { 1: {1: 50}, 2: {2: 75}, 3: {3: 500, 2: 50}, 4: {4: 1000, 3: 100, 2: 25}, 5: {5: 7500, 4: 500, 3: 50}, 6: {6: 25000, 5: 1000, 4: 200, 3: 25} };
+        let selectedNumbers = [];
+        let currentGameMode = 'star';
+        let selectedOption = null;
 
-        async function fetchGoogleSheetData() {
+        const STAR_PRIZES = {
+            1: {1: 50}, 2: {2: 75}, 3: {3: 500, 2: 50}, 4: {4: 1000, 3: 100, 2: 25},
+            5: {5: 7500, 4: 500, 3: 50}, 6: {6: 25000, 5: 1000, 4: 200, 3: 25},
+            7: {7: 80000, 6: 3000, 5: 300, 4: 50, 3: 25},
+            8: {8: 500000, 7: 20000, 6: 1000, 5: 400, 4: 100, 0: 25},
+            9: {9: 1000000, 8: 100000, 7: 3000, 6: 500, 5: 100, 4: 25, 0: 25},
+            10: {10: 5000000, 9: 250000, 8: 25000, 7: 2500, 6: 250, 5: 25, 0: 25}
+        };
+
+        // 頁面初始化
+        function init() {
+            const grid = document.getElementById('num-grid');
+            for(let i=1; i<=80; i++) {
+                let btn = document.createElement('button');
+                btn.innerText = String(i).padStart(2, '0');
+                btn.className = "num-btn border p-2 rounded-lg text-sm font-bold bg-white hover:bg-gray-100";
+                btn.onclick = () => toggleNumber(i, btn);
+                grid.appendChild(btn);
+            }
+            fetchData();
+            setInterval(updateCountdown, 1000);
+            setInterval(fetchData, 60000);
+        }
+
+        function toggleNumber(num, btn) {
+            const limit = parseInt(document.getElementById('star-select').value);
+            if(selectedNumbers.includes(num)) {
+                selectedNumbers = selectedNumbers.filter(n => n !== num);
+                btn.classList.remove('selected');
+            } else if(selectedNumbers.length < limit) {
+                selectedNumbers.push(num);
+                btn.classList.add('selected');
+            }
+            document.getElementById('select-count').innerText = `已選 ${selectedNumbers.length} / ${limit} 個`;
+        }
+
+        function changeMode(mode) {
+            currentGameMode = mode;
+            document.querySelectorAll('#btn-star, #btn-bs, #btn-oe').forEach(b => {
+                b.classList.remove('bg-white', 'shadow');
+                b.classList.add('text-gray-500');
+            });
+            document.getElementById(`btn-${mode}`).classList.add('bg-white', 'shadow');
+            document.getElementById(`btn-${mode}`).classList.remove('text-gray-500');
+
+            document.getElementById('star-picker-div').style.display = (mode === 'star') ? 'block' : 'none';
+            document.getElementById('star-select-div').style.display = (mode === 'star') ? 'block' : 'none';
+            document.getElementById('bs-oe-picker-div').style.display = (mode !== 'star') ? 'block' : 'none';
+            document.getElementById('bs-options').classList.toggle('hidden', mode !== 'bs');
+            document.getElementById('oe-options').classList.toggle('hidden', mode !== 'oe');
+        }
+
+        function pickOption(opt) {
+            selectedOption = opt;
+            document.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('tc-bg-red', 'text-white', 'border-red-600'));
+            event.target.classList.add('tc-bg-red', 'text-white', 'border-red-600');
+        }
+
+        async function fetchData() {
             try {
-                const response = await fetch(GOOGLE_CSV_URL + "&t=" + new Date().getTime());
-                const csvText = await response.text();
-                const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== "");
-                let tempData = [];
-                for(let i = 1; i < lines.length; i++) {
-                    let parts = lines[i].split(/,(.+)/);
-                    let draw_id = parts[0].trim();
-                    let rest = parts[1].split(/,(.+)/);
+                const res = await fetch(CSV_URL + "&t=" + Date.now());
+                const text = await res.text();
+                const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
+                let data = [];
+                for(let i=1; i<lines.length; i++){
+                    let p = lines[i].split(/,(.+)/);
+                    let id = p[0].trim();
+                    let rest = p[1].split(/,(.+)/);
                     let time = rest[0].trim();
-                    let numbers = rest[1].replace(/"/g, '').split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
-                    if(numbers.length === 20) tempData.push({ draw_id, time, numbers });
+                    let nums = rest[1].replace(/"/g, '').split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+                    if(nums.length === 20) data.push({ id, time, nums });
                 }
-                if(tempData.length > 0) {
-                    globalBingoData = tempData;
-                    document.getElementById('status-box').className = "p-3 rounded-lg bg-green-100 text-green-800 text-center font-bold shadow";
-                    document.getElementById('status-box').innerHTML = `🟢 成功讀取 ${globalBingoData.length} 期資料`;
-                    document.getElementById('start-draw').value = globalBingoData[0].draw_id;
-                    let html = '';
-                    globalBingoData.slice(0, 6).forEach(draw => {
-                        html += `<div class="p-4 border rounded-xl bg-white shadow-sm"><div class="font-bold tc-red text-lg">第 ${draw.draw_id} 期 <span class="text-sm text-gray-500 ml-2">🕒 ${draw.time}</span></div><div class="text-lg font-mono tracking-widest bg-gray-50 p-2 rounded">${draw.numbers.map(n => String(n).padStart(2, '0')).join(', ')}</div></div>`;
-                    });
-                    document.getElementById('draws-container').innerHTML = html;
-                }
-            } catch (error) { document.getElementById('status-box').innerHTML = `🔴 讀取失敗，請檢查發佈設定。`; }
+                globalBingoData = data;
+                renderHistory();
+                renderStats();
+                document.getElementById('status-box').innerHTML = `🟢 連線正常 | 已同步 ${data.length} 期資料`;
+                if(data[0]) document.getElementById('start-draw').value = data[0].id;
+            } catch (e) { document.getElementById('status-box').innerText = "🔴 連線失敗"; }
         }
 
         function calculatePrize() {
-            const star = parseInt(document.getElementById('star-select').value);
             const mult = parseInt(document.getElementById('multiplier').value);
-            const counts = parseInt(document.getElementById('draw-counts').value);
+            const count = parseInt(document.getElementById('draw-counts').value);
             const startId = parseInt(document.getElementById('start-draw').value);
-            const userNums = document.getElementById('user-numbers').value.split(/[,，、]/).map(n => parseInt(n)).filter(n => !isNaN(n));
-            const resBox = document.getElementById('result-box');
-            resBox.classList.remove('hidden');
-            if(userNums.length !== star) { resBox.innerHTML = "⚠️ 號碼數量與星數不符"; return; }
-            let totalPrize = 0; let log = '';
-            for(let i=0; i<counts; i++) {
+            const starCount = parseInt(document.getElementById('star-select').value);
+            
+            if(currentGameMode === 'star' && selectedNumbers.length !== starCount) return alert(`請選滿 ${starCount} 個號碼`);
+            if(currentGameMode !== 'star' && !selectedOption) return alert("請選擇投注選項");
+
+            let totalCost = 25 * mult * count;
+            let totalWin = 0;
+            let log = '';
+
+            for(let i=0; i<count; i++) {
                 let id = String(startId + i);
-                let draw = globalBingoData.find(d => d.draw_id === id);
+                let draw = globalBingoData.find(d => d.id === id);
+                let win = 0;
+                let detail = '';
+
                 if(draw) {
-                    let matched = userNums.filter(n => draw.numbers.includes(n));
-                    let prize = (PRIZE_TABLE[star][matched.length] || 0) * mult;
-                    totalPrize += prize;
-                    log += `<div class="border-b p-2 flex justify-between"><span>第 ${id} 期：中 ${matched.length} 顆</span> <b>$${prize}</b></div>`;
+                    if(currentGameMode === 'star') {
+                        let matches = selectedNumbers.filter(n => draw.nums.includes(n));
+                        win = (STAR_PRIZES[starCount][matches.length] || 0) * mult;
+                        detail = `中 ${matches.length} 顆`;
+                    } else if(currentGameMode === 'bs') {
+                        let bigs = draw.nums.filter(n => n >= 41).length;
+                        let result = bigs >= 13 ? "大" : (bigs <= 7 ? "小" : "無");
+                        if(selectedOption === result) win = 150 * mult;
+                        detail = `開出: ${result} (大${bigs})`;
+                    } else if(currentGameMode === 'oe') {
+                        let odds = draw.nums.filter(n => n % 2 !== 0).length;
+                        let result = odds >= 13 ? "單" : (odds <= 7 ? "雙" : (odds === 11 || odds === 12 ? "小單" : (odds === 8 || odds === 9 ? "小雙" : "和")));
+                        if(selectedOption === result) win = result === "和" ? 70 * mult : (result.includes("小") ? 45 * mult : 150 * mult);
+                        detail = `開出: ${result} (單${odds})`;
+                    }
                 }
+                totalWin += win;
+                log += `<div class="p-3 border-b flex justify-between items-center ${win > 0 ? 'bg-red-50' : 'text-gray-400'}">
+                    <span>${id}期 | ${detail}</span>
+                    <span class="font-bold ${win > 0 ? 'text-red-600' : ''}">$${win}</span>
+                </div>`;
             }
-            resBox.className = "mt-6 p-4 rounded-xl bg-blue-50 border border-blue-200";
-            resBox.innerHTML = `<h3 class="font-bold text-xl mb-2">總獎金：<span class="tc-red">$${totalPrize}</span></h3><div class="max-h-60 overflow-y-auto bg-white p-2 rounded text-sm">${log}</div>`;
+
+            const box = document.getElementById('result-box');
+            box.classList.remove('hidden');
+            box.innerHTML = `
+                <div class="p-4 bg-blue-900 text-white flex justify-between">
+                    <span>總支出: $${totalCost}</span>
+                    <span class="text-yellow-300 font-bold">總獎金: $${totalWin}</span>
+                </div>
+                <div class="bg-white p-2 text-sm">${log || "無紀錄"}</div>
+            `;
         }
-        fetchGoogleSheetData();
+
+        function renderHistory() {
+            let html = '';
+            globalBingoData.slice(0, 10).forEach(d => {
+                html += `<div class="p-3 bg-gray-50 rounded-lg"><div class="text-xs font-bold text-gray-500">${d.id}期 | ${d.time}</div><div class="text-sm font-mono tracking-tighter text-blue-900">${d.nums.join(',')}</div></div>`;
+            });
+            document.getElementById('draws-container').innerHTML = html;
+        }
+
+        function renderStats() {
+            let counts = {};
+            for(let i=1; i<=80; i++) counts[i] = 0;
+            globalBingoData.slice(0, 200).forEach(d => d.nums.forEach(n => counts[n]++));
+            
+            let sorted = Object.keys(counts).map(n => ({ num: n, count: counts[n] }))
+                .sort((a, b) => b.count - a.count);
+            
+            const createBar = (arr, target) => {
+                target.innerHTML = arr.map(x => `<div class="flex items-center gap-2 text-xs">
+                    <span class="w-6 font-bold">${String(x.num).padStart(2,'0')}</span>
+                    <div class="flex-1 bg-gray-200 h-2 rounded-full overflow-hidden"><div class="bg-red-500 h-full" style="width:${(x.count/200*100*2)}%"></div></div>
+                    <span class="w-10 text-right">${(x.count/200*100).toFixed(1)}%</span>
+                </div>`).join('');
+            };
+
+            createBar(sorted.slice(0, 10), document.getElementById('hot-nums'));
+            createBar(sorted.slice(-10).reverse(), document.getElementById('cold-nums'));
+        }
+
+        function updateCountdown() {
+            let n = new Date();
+            let next = Math.ceil((n.getMinutes() + 1) / 5) * 5;
+            let m = next - n.getMinutes() - 1;
+            let s = 60 - n.getSeconds();
+            if(s === 60) { m++; s=0; }
+            document.getElementById('timer').innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        }
+
+        window.onload = init;
     </script>
 </body>
 </html>
