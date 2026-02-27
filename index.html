@@ -2,306 +2,214 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo Bingo 終極全玩法終端</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bingo Bingo 尊榮發財終端</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        .tc-red { color: #E63946; }
-        .tc-bg-red { background-color: #E63946; }
-        .tc-bg-dark { background-color: #0A1931; }
-        .num-btn.selected { background-color: #E63946; color: white; border-color: #F1C40F; transform: scale(1.1); }
-        .tab-active { border-bottom: 4px solid #F1C40F; color: #F1C40F; font-weight: bold; }
-        html { scroll-behavior: smooth; }
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #050A15; color: #E0E0E0; }
+        .gold-gradient { background: linear-gradient(135deg, #F1C40F 0%, #D4AF37 100%); }
+        .card-dark { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .num-btn { aspect-ratio: 1; transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .num-btn.selected { background-color: #E63946; color: white; border-color: #F1C40F; box-shadow: 0 0 15px rgba(230, 57, 70, 0.5); transform: scale(1.1); }
+        .nav-tab.active { color: #F1C40F; border-bottom: 3px solid #F1C40F; }
+        .win-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+        .win-ball { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #252A34; font-weight: 900; font-size: 0.75rem; color: #F1C40F; border: 1px solid #3F4451; }
+        ::-webkit-scrollbar { width: 0px; }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800 pb-10">
+<body>
 
-    <nav class="tc-bg-dark text-white sticky top-0 z-50 shadow-xl">
-        <div class="flex justify-around items-center p-3 text-sm font-bold">
-            <a href="#bet-section" class="tab-active py-1 px-2">🎯 投注對獎</a>
-            <a href="#history-section" class="py-1 px-2">📊 開獎紀錄</a>
-            <a href="#stats-section" class="py-1 px-2">🔥 冷熱趨勢</a>
+    <nav class="sticky top-0 z-50 bg-[#050A15]/90 backdrop-blur-md border-b border-white/10">
+        <div class="flex justify-around p-3 font-bold text-sm text-gray-400">
+            <button onclick="showTab('bet')" id="tab-bet" class="nav-tab active pb-2">🎯 智能對獎</button>
+            <button onclick="showTab('trend')" id="tab-trend" class="nav-tab pb-2">📈 數據趨勢</button>
+            <button onclick="showTab('memo')" id="tab-memo" class="nav-tab pb-2">📒 發財簿</button>
         </div>
-        <div class="bg-blue-900/50 p-2 flex justify-center items-center gap-4 border-t border-white/10">
-            <span class="text-xs">⏳ 下期開獎倒數：</span>
-            <span id="timer" class="text-yellow-400 font-mono font-bold text-2xl">--:--</span>
+        <div class="bg-red-600 p-1 flex justify-center items-center gap-3">
+            <span class="text-[10px] text-white font-black animate-pulse">LIVE NEXT DRAW</span>
+            <span id="timer" class="text-white font-black text-xl tracking-tighter">00:00</span>
         </div>
     </nav>
 
-    <div class="max-w-5xl mx-auto p-4 space-y-6">
-        
-        <div id="status-box" class="p-3 rounded-xl bg-white text-center font-bold shadow-sm border text-gray-500">
-            🔄 讀取 Google 試算表資料中...
-        </div>
+    <div class="max-w-lg mx-auto p-4 space-y-6">
 
-        <div id="bet-section" class="bg-white rounded-2xl shadow-lg border-t-8 border-red-600 overflow-hidden">
-            <div class="p-5 bg-red-50 border-b">
-                <h2 class="text-2xl font-black tc-red flex items-center gap-2">📝 投注與對獎試算</h2>
+        <section id="sec-bet" class="space-y-4">
+            <div class="card-dark rounded-2xl p-5 space-y-5">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-black text-white">投注設定</h2>
+                    <div id="bonus-tag" class="hidden gold-gradient text-black px-2 py-0.5 rounded-full text-[10px] font-black">💰 獎金加碼中</div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 p-1 bg-white/5 rounded-xl">
+                    <button onclick="setMode('star')" id="m-star" class="py-2 rounded-lg text-sm font-bold bg-white/10 text-white">星號</button>
+                    <button onclick="setMode('bs')" id="m-bs" class="py-2 rounded-lg text-sm font-bold text-gray-500">大小</button>
+                    <button onclick="setMode('oe')" id="m-oe" class="py-2 rounded-lg text-sm font-bold text-gray-500">單雙</button>
+                </div>
+
+                <div class="grid grid-cols-4 gap-2">
+                    <select id="star-select" class="bg-white/5 border border-white/10 rounded-lg p-2 text-xs font-bold text-yellow-400">
+                        <option value="1">1星</option><option value="2">2星</option><option value="3" selected>3星</option>
+                        <option value="4">4星</option><option value="5">5星</option><option value="6">6星</option>
+                        <option value="10">10星</option>
+                    </select>
+                    <input type="number" id="mult" value="4" class="bg-white/5 border border-white/10 rounded-lg p-2 text-xs text-center font-bold" placeholder="倍數">
+                    <input type="number" id="counts" value="10" class="bg-white/5 border border-white/10 rounded-lg p-2 text-xs text-center font-bold" placeholder="期數">
+                    <input type="text" id="start-p" class="bg-white/5 border border-white/10 rounded-lg p-2 text-xs text-center font-bold text-blue-400" placeholder="起始期">
+                </div>
+
+                <div id="picker-star">
+                    <div class="text-[10px] text-gray-500 font-bold mb-2 flex justify-between">
+                        <span>PICK NUMBERS (1-80)</span>
+                        <span id="pick-info" class="text-yellow-500">已選 0 個</span>
+                    </div>
+                    <div class="grid grid-cols-8 gap-1.5" id="num-grid"></div>
+                </div>
+
+                <div id="picker-other" class="hidden grid grid-cols-2 gap-2">
+                    <button onclick="selOpt('大')" class="opt-btn py-4 border border-white/10 rounded-xl font-bold bg-white/5">大</button>
+                    <button onclick="selOpt('小')" class="opt-btn py-4 border border-white/10 rounded-xl font-bold bg-white/5">小</button>
+                </div>
+
+                <button onclick="runCheck()" class="gold-gradient text-black font-black py-4 rounded-xl w-full text-lg shadow-[0_0_20px_rgba(212,175,55,0.3)] active:scale-95 transition">🎯 開始對獎</button>
             </div>
-            
-            <div class="p-5 space-y-6">
-                <div class="grid grid-cols-3 gap-2 p-1 bg-gray-100 rounded-xl">
-                    <button onclick="changeMode('star')" id="btn-star" class="py-2 rounded-lg font-bold bg-white shadow">星號</button>
-                    <button onclick="changeMode('bs')" id="btn-bs" class="py-2 rounded-lg font-bold text-gray-500">大小</button>
-                    <button onclick="changeMode('oe')" id="btn-oe" class="py-2 rounded-lg font-bold text-gray-500">單雙</button>
-                </div>
 
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div id="star-select-div">
-                        <label class="block text-xs font-bold text-gray-500 mb-1">玩法星數</label>
-                        <select id="star-select" onchange="resetSelection()" class="w-full border p-3 rounded-xl bg-gray-50 font-bold">
-                            <option value="1">1星</option><option value="2">2星</option><option value="3" selected>3星</option>
-                            <option value="4">4星</option><option value="5">5星</option><option value="6">6星</option>
-                            <option value="7">7星</option><option value="8">8星</option><option value="9">9星</option><option value="10">10星</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 mb-1">倍數</label>
-                        <input type="number" id="multiplier" value="4" min="1" class="w-full border p-3 rounded-xl bg-gray-50 font-bold text-center">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 mb-1">連續期數</label>
-                        <input type="number" id="draw-counts" value="10" min="1" class="w-full border p-3 rounded-xl bg-gray-50 font-bold text-center">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 mb-1">起始期數</label>
-                        <input type="text" id="start-draw" placeholder="例: 115011765" class="w-full border p-3 rounded-xl bg-gray-50 font-bold text-center">
-                    </div>
-                </div>
+            <div id="res-box" class="hidden card-dark rounded-2xl p-4 border-l-4 border-yellow-500"></div>
+        </section>
 
-                <div id="star-picker-div">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-sm font-bold">挑選號碼 (點擊選擇)</span>
-                        <span id="select-count" class="tc-red font-bold text-sm">已選 0 個</span>
-                    </div>
-                    <div id="num-grid" class="grid grid-cols-10 gap-1 sm:gap-2">
-                        </div>
-                </div>
+        <section id="sec-history" class="space-y-3">
+            <h2 class="text-sm font-bold text-gray-500 tracking-widest">LATEST RESULTS</h2>
+            <div id="history-list" class="space-y-3"></div>
+        </section>
 
-                <div id="bs-oe-picker-div" class="hidden">
-                    <label class="block text-sm font-bold mb-2">請選擇投注項</label>
-                    <div id="bs-options" class="grid grid-cols-2 gap-4">
-                        <button onclick="pickOption('大')" class="opt-btn p-4 border-2 rounded-xl font-bold">大 (41~80)</button>
-                        <button onclick="pickOption('小')" class="opt-btn p-4 border-2 rounded-xl font-bold">小 (01~40)</button>
-                    </div>
-                    <div id="oe-options" class="hidden grid grid-cols-5 gap-1">
-                        <button onclick="pickOption('單')" class="opt-btn p-2 border rounded-lg text-xs font-bold">單</button>
-                        <button onclick="pickOption('雙')" class="opt-btn p-2 border rounded-lg text-xs font-bold">雙</button>
-                        <button onclick="pickOption('小單')" class="opt-btn p-2 border rounded-lg text-xs font-bold">小單</button>
-                        <button onclick="pickOption('小雙')" class="opt-btn p-2 border rounded-lg text-xs font-bold">小雙</button>
-                        <button onclick="pickOption('和')" class="opt-btn p-2 border rounded-lg text-xs font-bold">和</button>
-                    </div>
-                </div>
-
-                <button onclick="calculatePrize()" class="tc-bg-red text-white font-black py-4 px-4 rounded-2xl w-full text-xl shadow-lg active:scale-95 transition-transform">
-                    🎯 立即對獎
-                </button>
-                
-                <div id="result-box" class="hidden rounded-2xl overflow-hidden"></div>
+        <section id="sec-stats" class="space-y-4">
+            <div class="card-dark rounded-2xl p-5">
+                <h2 class="text-xl font-black mb-4 text-white">🔥 冷熱排行 (200期)</h2>
+                <div id="rank-list" class="space-y-2 text-xs"></div>
             </div>
-        </div>
-
-        <div id="history-section" class="bg-white rounded-2xl shadow p-5 border-l-8 border-gray-400">
-            <h2 class="text-xl font-bold mb-4 flex items-center gap-2">📊 近期開獎紀錄</h2>
-            <div id="draws-container" class="space-y-3"></div>
-        </div>
-
-        <div id="stats-section" class="bg-white rounded-2xl shadow p-5 border-l-8 border-yellow-500">
-            <h2 class="text-xl font-bold mb-4">🔥 數據統計 (最新200期)</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <h3 class="font-bold text-red-600 mb-2">最熱門號碼 Top 10</h3>
-                    <div id="hot-nums" class="space-y-1"></div>
-                </div>
-                <div>
-                    <h3 class="font-bold text-blue-600 mb-2">最冷門號碼 Top 10</h3>
-                    <div id="cold-nums" class="space-y-1"></div>
-                </div>
+            <div class="card-dark rounded-2xl p-5">
+                <h2 class="text-xl font-black mb-4 text-orange-400">⏳ 遺漏值 (多久沒開)</h2>
+                <div id="gap-list" class="grid grid-cols-5 gap-2"></div>
             </div>
-        </div>
+        </section>
+
     </div>
 
     <script>
-        // 妳專屬的 CSV 網址
         const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7ZS9Nt-Y0kMHr_6lNy5FcMeYRn1_MVkmN_E3SuFDSxm7QkVT76NmeLkCWJNrR24U8XVtdTtn8IQc3/pub?gid=1857522434&single=true&output=csv";
+        let db = [];
+        let selected = [];
+        let curOpt = null;
+        let mode = 'star';
 
-        let globalBingoData = [];
-        let selectedNumbers = [];
-        let currentGameMode = 'star';
-        let selectedOption = null;
-
-        const STAR_PRIZES = {
-            1: {1: 50}, 2: {2: 75}, 3: {3: 500, 2: 50}, 4: {4: 1000, 3: 100, 2: 25},
-            5: {5: 7500, 4: 500, 3: 50}, 6: {6: 25000, 5: 1000, 4: 200, 3: 25},
-            7: {7: 80000, 6: 3000, 5: 300, 4: 50, 3: 25},
-            8: {8: 500000, 7: 20000, 6: 1000, 5: 400, 4: 100, 0: 25},
-            9: {9: 1000000, 8: 100000, 7: 3000, 6: 500, 5: 100, 4: 25, 0: 25},
-            10: {10: 5000000, 9: 250000, 8: 25000, 7: 2500, 6: 250, 5: 25, 0: 25}
-        };
-
-        // 頁面初始化
         function init() {
             const grid = document.getElementById('num-grid');
             for(let i=1; i<=80; i++) {
-                let btn = document.createElement('button');
-                btn.innerText = String(i).padStart(2, '0');
-                btn.className = "num-btn border p-2 rounded-lg text-sm font-bold bg-white hover:bg-gray-100";
-                btn.onclick = () => toggleNumber(i, btn);
-                grid.appendChild(btn);
+                let b = document.createElement('button');
+                b.innerText = String(i).padStart(2,'0');
+                b.className = "num-btn border border-white/10 rounded-lg text-xs font-bold bg-white/5 text-gray-400";
+                b.onclick = () => {
+                    const limit = parseInt(document.getElementById('star-select').value);
+                    if(selected.includes(i)) { selected = selected.filter(x=>x!==i); b.classList.remove('selected'); }
+                    else if(selected.length < limit) { selected.push(i); b.classList.add('selected'); }
+                    document.getElementById('pick-info').innerText = `已選 ${selected.length} / ${limit}`;
+                };
+                grid.appendChild(b);
             }
-            fetchData();
-            setInterval(updateCountdown, 1000);
-            setInterval(fetchData, 60000);
+            refresh();
+            setInterval(timer, 1000);
+            setInterval(refresh, 30000);
         }
 
-        function toggleNumber(num, btn) {
-            const limit = parseInt(document.getElementById('star-select').value);
-            if(selectedNumbers.includes(num)) {
-                selectedNumbers = selectedNumbers.filter(n => n !== num);
-                btn.classList.remove('selected');
-            } else if(selectedNumbers.length < limit) {
-                selectedNumbers.push(num);
-                btn.classList.add('selected');
-            }
-            document.getElementById('select-count').innerText = `已選 ${selectedNumbers.length} / ${limit} 個`;
-        }
-
-        function changeMode(mode) {
-            currentGameMode = mode;
-            document.querySelectorAll('#btn-star, #btn-bs, #btn-oe').forEach(b => {
-                b.classList.remove('bg-white', 'shadow');
-                b.classList.add('text-gray-500');
+        async function refresh() {
+            const res = await fetch(CSV_URL + "&t=" + Date.now());
+            const lines = (await res.text()).split('\n').filter(l=>l.trim());
+            db = lines.slice(1).map(l => {
+                let p = l.split(/,(.+)/);
+                let r = p[1].split(/,(.+)/);
+                return { id: p[0].trim(), time: r[0].trim(), nums: r[1].replace(/"/g,'').split(',').map(n=>parseInt(n)) };
             });
-            document.getElementById(`btn-${mode}`).classList.add('bg-white', 'shadow');
-            document.getElementById(`btn-${mode}`).classList.remove('text-gray-500');
-
-            document.getElementById('star-picker-div').style.display = (mode === 'star') ? 'block' : 'none';
-            document.getElementById('star-select-div').style.display = (mode === 'star') ? 'block' : 'none';
-            document.getElementById('bs-oe-picker-div').style.display = (mode !== 'star') ? 'block' : 'none';
-            document.getElementById('bs-options').classList.toggle('hidden', mode !== 'bs');
-            document.getElementById('oe-options').classList.toggle('hidden', mode !== 'oe');
-        }
-
-        function pickOption(opt) {
-            selectedOption = opt;
-            document.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('tc-bg-red', 'text-white', 'border-red-600'));
-            event.target.classList.add('tc-bg-red', 'text-white', 'border-red-600');
-        }
-
-        async function fetchData() {
-            try {
-                const res = await fetch(CSV_URL + "&t=" + Date.now());
-                const text = await res.text();
-                const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
-                let data = [];
-                for(let i=1; i<lines.length; i++){
-                    let p = lines[i].split(/,(.+)/);
-                    let id = p[0].trim();
-                    let rest = p[1].split(/,(.+)/);
-                    let time = rest[0].trim();
-                    let nums = rest[1].replace(/"/g, '').split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
-                    if(nums.length === 20) data.push({ id, time, nums });
-                }
-                globalBingoData = data;
-                renderHistory();
-                renderStats();
-                document.getElementById('status-box').innerHTML = `🟢 連線正常 | 已同步 ${data.length} 期資料`;
-                if(data[0]) document.getElementById('start-draw').value = data[0].id;
-            } catch (e) { document.getElementById('status-box').innerText = "🔴 連線失敗"; }
-        }
-
-        function calculatePrize() {
-            const mult = parseInt(document.getElementById('multiplier').value);
-            const count = parseInt(document.getElementById('draw-counts').value);
-            const startId = parseInt(document.getElementById('start-draw').value);
-            const starCount = parseInt(document.getElementById('star-select').value);
-            
-            if(currentGameMode === 'star' && selectedNumbers.length !== starCount) return alert(`請選滿 ${starCount} 個號碼`);
-            if(currentGameMode !== 'star' && !selectedOption) return alert("請選擇投注選項");
-
-            let totalCost = 25 * mult * count;
-            let totalWin = 0;
-            let log = '';
-
-            for(let i=0; i<count; i++) {
-                let id = String(startId + i);
-                let draw = globalBingoData.find(d => d.id === id);
-                let win = 0;
-                let detail = '';
-
-                if(draw) {
-                    if(currentGameMode === 'star') {
-                        let matches = selectedNumbers.filter(n => draw.nums.includes(n));
-                        win = (STAR_PRIZES[starCount][matches.length] || 0) * mult;
-                        detail = `中 ${matches.length} 顆`;
-                    } else if(currentGameMode === 'bs') {
-                        let bigs = draw.nums.filter(n => n >= 41).length;
-                        let result = bigs >= 13 ? "大" : (bigs <= 7 ? "小" : "無");
-                        if(selectedOption === result) win = 150 * mult;
-                        detail = `開出: ${result} (大${bigs})`;
-                    } else if(currentGameMode === 'oe') {
-                        let odds = draw.nums.filter(n => n % 2 !== 0).length;
-                        let result = odds >= 13 ? "單" : (odds <= 7 ? "雙" : (odds === 11 || odds === 12 ? "小單" : (odds === 8 || odds === 9 ? "小雙" : "和")));
-                        if(selectedOption === result) win = result === "和" ? 70 * mult : (result.includes("小") ? 45 * mult : 150 * mult);
-                        detail = `開出: ${result} (單${odds})`;
-                    }
-                }
-                totalWin += win;
-                log += `<div class="p-3 border-b flex justify-between items-center ${win > 0 ? 'bg-red-50' : 'text-gray-400'}">
-                    <span>${id}期 | ${detail}</span>
-                    <span class="font-bold ${win > 0 ? 'text-red-600' : ''}">$${win}</span>
-                </div>`;
+            renderHistory();
+            renderStats();
+            if(db[0]) {
+                document.getElementById('start-p').value = db[0].id;
+                // 檢查是否加碼期間 (簡化版邏輯)
+                const isBonus = (parseInt(db[0].id) >= 115006300); // 假設期數區段
+                document.getElementById('bonus-tag').classList.toggle('hidden', !isBonus);
             }
-
-            const box = document.getElementById('result-box');
-            box.classList.remove('hidden');
-            box.innerHTML = `
-                <div class="p-4 bg-blue-900 text-white flex justify-between">
-                    <span>總支出: $${totalCost}</span>
-                    <span class="text-yellow-300 font-bold">總獎金: $${totalWin}</span>
-                </div>
-                <div class="bg-white p-2 text-sm">${log || "無紀錄"}</div>
-            `;
         }
 
         function renderHistory() {
-            let html = '';
-            globalBingoData.slice(0, 10).forEach(d => {
-                html += `<div class="p-3 bg-gray-50 rounded-lg"><div class="text-xs font-bold text-gray-500">${d.id}期 | ${d.time}</div><div class="text-sm font-mono tracking-tighter text-blue-900">${d.nums.join(',')}</div></div>`;
+            let h = '';
+            db.slice(0, 5).forEach(d => {
+                let balls = d.nums.map(n => `<div class="win-ball">${String(n).padStart(2,'0')}</div>`).join('');
+                h += `<div class="card-dark p-3 rounded-xl border border-white/5">
+                    <div class="flex justify-between text-[10px] mb-2 font-bold text-gray-500">
+                        <span>期數 ${d.id}</span><span>🕒 ${d.time}</span>
+                    </div>
+                    <div class="win-grid">${balls}</div>
+                </div>`;
             });
-            document.getElementById('draws-container').innerHTML = html;
+            document.getElementById('history-list').innerHTML = h;
         }
 
         function renderStats() {
-            let counts = {};
-            for(let i=1; i<=80; i++) counts[i] = 0;
-            globalBingoData.slice(0, 200).forEach(d => d.nums.forEach(n => counts[n]++));
+            let c = {}; let gaps = {};
+            for(let i=1; i<=80; i++) { c[i]=0; gaps[i]=-1; }
+            db.forEach((d,idx) => {
+                d.nums.forEach(n => {
+                    c[n]++;
+                    if(gaps[n] === -1) gaps[n] = idx;
+                });
+            });
             
-            let sorted = Object.keys(counts).map(n => ({ num: n, count: counts[n] }))
-                .sort((a, b) => b.count - a.count);
-            
-            const createBar = (arr, target) => {
-                target.innerHTML = arr.map(x => `<div class="flex items-center gap-2 text-xs">
-                    <span class="w-6 font-bold">${String(x.num).padStart(2,'0')}</span>
-                    <div class="flex-1 bg-gray-200 h-2 rounded-full overflow-hidden"><div class="bg-red-500 h-full" style="width:${(x.count/200*100*2)}%"></div></div>
-                    <span class="w-10 text-right">${(x.count/200*100).toFixed(1)}%</span>
-                </div>`).join('');
-            };
+            // 冷熱
+            let sorted = Object.keys(c).map(n=>({n,v:c[n]})).sort((a,b)=>b.v-a.v);
+            document.getElementById('rank-list').innerHTML = sorted.slice(0,5).map(x=>`
+                <div class="flex items-center gap-2">
+                    <span class="w-6 font-black text-yellow-500">${String(x.n).padStart(2,'0')}</span>
+                    <div class="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden"><div class="h-full gold-gradient" style="width:${x.v/db.length*100*3}%"></div></div>
+                    <span class="text-[10px] text-gray-500">${x.v}次</span>
+                </div>
+            `).join('');
 
-            createBar(sorted.slice(0, 10), document.getElementById('hot-nums'));
-            createBar(sorted.slice(-10).reverse(), document.getElementById('cold-nums'));
+            // 遺漏
+            let gapSorted = Object.keys(gaps).map(n=>({n,v:gaps[n]})).sort((a,b)=>b.v-a.v);
+            document.getElementById('gap-list').innerHTML = gapSorted.slice(0,10).map(x=>`
+                <div class="text-center p-2 bg-white/5 rounded-lg border border-white/5">
+                    <div class="text-[10px] text-gray-500">${String(x.n).padStart(2,'0')}</div>
+                    <div class="text-xs font-black text-orange-500">${x.v}期</div>
+                </div>
+            `).join('');
         }
 
-        function updateCountdown() {
+        function timer() {
             let n = new Date();
-            let next = Math.ceil((n.getMinutes() + 1) / 5) * 5;
-            let m = next - n.getMinutes() - 1;
-            let s = 60 - n.getSeconds();
-            if(s === 60) { m++; s=0; }
+            let m = 4 - (n.getMinutes() % 5);
+            let s = 59 - n.getSeconds();
             document.getElementById('timer').innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        }
+
+        function showTab(t) {
+            ['bet','trend','memo'].forEach(x => {
+                document.getElementById(`sec-${x === 'bet' ? 'bet' : x === 'trend' ? 'history' : 'stats'}`).classList.toggle('hidden', x !== t);
+                document.getElementById(`tab-${x}`).classList.toggle('active', x === t);
+            });
+            if(t==='trend') document.getElementById('sec-stats').classList.remove('hidden');
+        }
+
+        function setMode(m) {
+            mode = m;
+            document.getElementById('picker-star').classList.toggle('hidden', m !== 'star');
+            document.getElementById('picker-other').classList.toggle('hidden', m === 'star');
+            document.querySelectorAll('#m-star, #m-bs, #m-oe').forEach(b => {
+                b.classList.remove('bg-white/10','text-white'); b.classList.add('text-gray-500');
+            });
+            document.getElementById(`m-${m}`).classList.add('bg-white/10','text-white');
         }
 
         window.onload = init;
     </script>
 </body>
 </html>
+
