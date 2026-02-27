@@ -5,15 +5,12 @@ import pandas as pd
 from datetime import datetime, timedelta
 import collections
 import random
+import re
 
 # ==========================================
 # 區塊零：網頁設定與台彩風格 CSS
 # ==========================================
-st.set_page_config(
-    page_title="Bingo Bingo 智能對獎中心",
-    page_icon="🎰",
-    layout="wide"
-)
+st.set_page_config(page_title="Bingo Bingo 智能對獎中心", page_icon="🎰", layout="wide")
 
 st.markdown("""
 <style>
@@ -34,83 +31,93 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 區塊一：雙軌制獎金表 (正常 vs 加碼)
+# 區塊一：雙軌制獎金表
 # ==========================================
-# 正常時期的獎金表
 NORMAL_PRIZE_TABLE = {
-    1: {1: 50},
-    2: {2: 75},
-    3: {3: 500, 2: 50},
-    4: {4: 1000, 3: 100, 2: 25},
-    5: {5: 7500, 4: 500, 3: 50},
+    1: {1: 50}, 2: {2: 75}, 3: {3: 500, 2: 50},
+    4: {4: 1000, 3: 100, 2: 25}, 5: {5: 7500, 4: 500, 3: 50},
     6: {6: 25000, 5: 1000, 4: 200, 3: 25}
 }
-
-# 加碼時期的獎金表 (依據實際活動公告調整，此處預設三星中三為 1000)
 BONUS_PRIZE_TABLE = {
-    1: {1: 50},
-    2: {2: 75},
-    3: {3: 1000, 2: 50},          # 加碼：三星中三 500 -> 1000
-    4: {4: 1500, 3: 100, 2: 25},  # 假設四星中四加碼為 1500
-    5: {5: 7500, 4: 500, 3: 50},
+    1: {1: 50}, 2: {2: 75}, 3: {3: 1000, 2: 50},
+    4: {4: 1500, 3: 100, 2: 25}, 5: {5: 7500, 4: 500, 3: 50},
     6: {6: 25000, 5: 1000, 4: 200, 3: 25}
 }
 
 # ==========================================
-# 區塊二：乾淨的純資料快取爬蟲 (不包含任何 UI 指令)
+# 區塊二：【核心更新】多源備援爬蟲 (嚴禁在此使用 st.toast)
 # ==========================================
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=60)
 def fetch_real_bingo_data():
-    """只負責抓資料並回傳，不呼叫任何 st.toast 或 st.error"""
-    url = "https://lotto.arclink.com.tw/Bingo.html"
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-        res = requests.get(url, headers=headers, timeout=5)
-        res.raise_for_status()
-        
-        # 這裡放入真實爬蟲解析邏輯
-        # 為了避免 Streamlit Cloud IP 被擋導致程式崩潰，如果解析失敗，會退回備用模擬資料
-        # ---------------------------------------------------
-        # 此處以備用動態生成邏輯確保網頁永遠有最新時間的資料可供測試對獎
-        now = datetime.now()
-        base_draw = int(now.strftime("%Y%j001")) + ((now.hour * 12) + (now.minute // 5))
-        data = []
-        for i in range(20): 
-            draw_id = str(base_draw - i)
-            draw_time = (now - timedelta(minutes=(now.minute % 5) + (i * 5))).strftime("%Y-%m-%d %H:%M")
-            winning_numbers = random.sample(range(1, 81), 20)
-            data.append({
-                "期數": draw_id,
-                "開獎時間": draw_time,
-                "開出號碼": winning_numbers
-            })
-        return data, True, "" # 回傳 (資料, 是否成功, 錯誤訊息)
-        
-    except Exception as e:
-        # 如果失敗，回傳空資料與錯誤訊息
-        return [], False, str(e)
-
-# 在主程式中呼叫資料，並在這裡處理 UI 提示 (避開 Cache 限制)
-latest_draws_list, fetch_success, error_msg = fetch_real_bingo_data()
-
-if not fetch_success:
-    st.toast(f"網路抓取異常，顯示備用系統資料。錯誤代碼: {error_msg}")
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+    }
     
-# 如果完全沒資料，產生一組防呆資料
-if not latest_draws_list:
-    now = datetime.now()
-    latest_draws_list = [{
-        "期數": "113000000",
-        "開獎時間": now.strftime("%Y-%m-%d %H:%M"),
-        "開出號碼": random.sample(range(1, 81), 20)
-    }]
+    # 策略一：台灣彩券官方 API (若官方防爬蟲則會跳到策略二)
+    try:
+        url_official = "https://api.taiwanlottery.com/TLCAPIWeB/Lottery/BingoResult"
+        res = requests.get(url_official, headers=headers, timeout=5)
+        if res.status_code == 200:
+            json_data = res.json()
+            parsed_data = []
+            for item in json_data.get('content', [])[:20]:
+                parsed_data.append({
+                    "期數": str(item['period']),
+                    "開獎時間": item['openTime'][:16].replace('T', ' '),
+                    "開出號碼": [int(x) for x in item['drawNumberSize']]
+                })
+            if parsed_data:
+                return parsed_data, True, "台彩官方 API"
+    except Exception:
+        pass
 
+    # 策略二：Pilio 樂透大數據網 (老牌歷史網站，容錯率高)
+    try:
+        url_pilio = "https://www.pilio.idv.tw/bingo/list.asp"
+        res = requests.get(url_pilio, headers=headers, timeout=5)
+        if res.status_code == 200:
+            soup = BeautifulSoup(res.text, 'html.parser')
+            parsed_data = []
+            rows = soup.find_all('tr')
+            for row in rows:
+                cols = row.find_all('td')
+                if len(cols) >= 3 and "期" in cols[0].text:
+                    draw_id = "".join(filter(str.isdigit, cols[0].text))
+                    time_text = cols[1].text.strip()
+                    nums_str = cols[2].text
+                    numbers = [int(n) for n in re.findall(r'\d+', nums_str) if int(n) <= 80]
+                    if len(numbers) >= 20 and draw_id:
+                        parsed_data.append({
+                            "期數": draw_id,
+                            "開獎時間": time_text,
+                            "開出號碼": numbers[:20]
+                        })
+            if parsed_data:
+                return parsed_data[:20], True, "Pilio 樂透網"
+    except Exception:
+        pass
+
+    # 若所有網站都抓不到，產生防呆測試資料，避免網頁崩潰
+    now = datetime.now()
+    base_draw = int(now.strftime("%Y%j001")) + ((now.hour * 12) + (now.minute // 5))
+    mock_data = []
+    for i in range(20): 
+        draw_id = str(base_draw - i)
+        draw_time = (now - timedelta(minutes=(now.minute % 5) + (i * 5))).strftime("%Y-%m-%d %H:%M")
+        mock_data.append({
+            "期數": draw_id,
+            "開獎時間": draw_time,
+            "開出號碼": random.sample(range(1, 81), 20)
+        })
+    return mock_data, False, "所有來源皆無法連線"
+
+# 取得資料並在主程式中處理 UI 提示
+latest_draws_list, fetch_success, data_source_name = fetch_real_bingo_data()
 latest_data_dict = {item['期數']: {"time": item['開獎時間'], "numbers": item['開出號碼']} for item in latest_draws_list}
 
 # ==========================================
-# 區塊三：Session State 管理
+# 區塊三：Session State 與介面輸入
 # ==========================================
 if 'saved_tickets' not in st.session_state:
     st.session_state.saved_tickets = {}
@@ -130,12 +137,16 @@ def load_ticket(ticket_id):
     st.session_state.draw_counts_input = ticket['continuous']
     st.session_state.start_draw_input = ticket['start_draw']
     st.session_state.selected_numbers_input = ticket['numbers']
-    st.toast(f"🔄 已載入彩券 '{ticket['name']}'！")
+    st.toast(f"🔄 已載入 '{ticket['name']}' 設定！")
 
-# ==========================================
-# 主畫面排版
-# ==========================================
 st.markdown("<h1>🎰 Bingo Bingo 智能對獎中心</h1>", unsafe_allow_html=True)
+
+# 資料來源狀態提示欄 (幫助你了解目前抓取狀況)
+if fetch_success:
+    st.success(f"🟢 即時連線正常 | 當前資料來源：{data_source_name}")
+else:
+    st.error(f"🔴 網路斷線警告 | 目前顯示為「系統模擬資料」，請檢查目標網站是否維護中。")
+
 st.markdown("<h3>📝 設定「我的號碼」</h3>", unsafe_allow_html=True)
 
 col1, col2, col3, col4, col5 = st.columns(5)
@@ -159,9 +170,7 @@ with col5:
 
 selected_numbers = st.multiselect(
     f"請選擇你的 {play_star} 個選號", 
-    options=list(range(1, 81)),
-    max_selections=play_star,
-    key="selected_numbers_input"
+    options=list(range(1, 81)), max_selections=play_star, key="selected_numbers_input"
 )
 
 with st.expander("💾 保存這張彩券 (長期使用功能)"):
@@ -183,7 +192,7 @@ if st.session_state.saved_tickets:
 st.divider()
 
 # ==========================================
-# 區塊四：對獎結果與金額 (雙軌獎金表邏輯)
+# 區塊四：對獎結果與金額
 # ==========================================
 if len(selected_numbers) == play_star and start_draw:
     st.markdown("<h3>🎯 實時對獎結果</h3>", unsafe_allow_html=True)
@@ -205,7 +214,6 @@ if len(selected_numbers) == play_star and start_draw:
     if not matched_draws:
         st.warning(f"⚠️ 找不到從 {start_draw} 期開始的連續期數資料。可能是輸入期數錯誤，或尚未開獎。")
     else:
-        # 【重要更新】依據是否勾選加碼，選擇對應的獎金表
         current_prize_table = BONUS_PRIZE_TABLE if is_bonus_active else NORMAL_PRIZE_TABLE
 
         for draw_id, data in matched_draws:
@@ -215,7 +223,6 @@ if len(selected_numbers) == play_star and start_draw:
             matched_numbers = set(selected_numbers).intersection(set(winning_numbers))
             match_count = len(matched_numbers)
             
-            # 【重要更新】直接從選定的獎金表中取值，不再用乘法算倍率
             base_prize = current_prize_table[play_star].get(match_count, 0)
             final_prize = base_prize * multiplier
             total_prize += final_prize
@@ -233,16 +240,13 @@ if len(selected_numbers) == play_star and start_draw:
         metric_col2.metric("累積獲得獎金", f"${total_prize:,}")
         profit = total_prize - total_cost
         
-        profit_display = f"${profit:,}"
         if profit > 0:
-            metric_col3.metric("淨賺", profit_display)
+            metric_col3.metric("淨賺", f"${profit:,}")
             st.success("恭喜！本張彩券目前贏得獎金！")
         elif profit < 0:
-            metric_col3.metric("淨損", profit_display)
-            st.warning("目前本張彩券累積損益為負。")
+            metric_col3.metric("淨損", f"${profit:,}")
         else:
-            metric_col3.metric("淨損益", profit_display)
-            st.info("本張彩券目前累積損益為零。")
+            metric_col3.metric("淨損益", f"${profit:,}")
         
         st.dataframe(pd.DataFrame(results), use_container_width=True)
 
@@ -252,19 +256,16 @@ elif len(selected_numbers) > 0 and len(selected_numbers) != play_star:
 st.divider()
 
 # ==========================================
-# 區塊五：冷熱熱號碼分析
+# 區塊五：冷熱號碼分析
 # ==========================================
 st.markdown("<h3>📊 近期冷熱號碼分析</h3>", unsafe_allow_html=True)
-
 analysis_N = st.slider("分析最近 N 期的號碼", min_value=10, max_value=50, value=20, step=10)
-
 all_numbers = []
 for draw_id, data in list(latest_data_dict.items())[:analysis_N]:
     all_numbers.extend(data['numbers'])
 
 number_counts = collections.Counter(all_numbers)
-df_counts = pd.DataFrame(number_counts.items(), columns=['號碼', '開出次數'])
-df_counts = df_counts.sort_values(by='開出次數', ascending=False)
+df_counts = pd.DataFrame(number_counts.items(), columns=['號碼', '開出次數']).sort_values(by='開出次數', ascending=False)
 df_counts['號碼'] = df_counts['號碼'].apply(lambda x: str(x).zfill(2))
 
 hot_col, cold_col, chart_col = st.columns([1, 1, 2])
@@ -290,13 +291,12 @@ with col_refresh:
         fetch_real_bingo_data.clear()
         st.rerun()
 with col_time:
-    current_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    st.caption(f"🕒 最後刷新時間: {current_time_str} (系統每 5 分鐘自動刷新)")
+    st.caption(f"🕒 最後刷新時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} (每分鐘自動抓取最新)")
 
 history_cols = st.columns(min(len(latest_draws_list), 5))
 for idx, item in enumerate(latest_draws_list[:5]):
     with history_cols[idx]:
         st.markdown(f"**第 {item['期數']} 期**")
         st.caption(f"🕒 {item['開獎時間']}")
-        formatted_nums = ", ".join([str(n).zfill(2) for n in item['開出號碼']])
-        st.info(formatted_nums)
+        st.info(", ".join([str(n).zfill(2) for n in item['開出號碼']]))
+
