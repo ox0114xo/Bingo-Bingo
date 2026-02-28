@@ -11,8 +11,8 @@
         h1 { margin: 0; font-size: 24px; }
         
         /* 選單導覽列 */
-        .nav-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 15px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .tab-btn { padding: 10px 20px; border: none; background: #e0e0e0; border-radius: 25px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.3s; }
+        .nav-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 15px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .tab-btn { padding: 10px 18px; border: none; background: #e0e0e0; border-radius: 25px; cursor: pointer; font-size: 15px; font-weight: bold; transition: 0.3s; }
         .tab-btn:hover { background: #ffc107; }
         .tab-btn.active { background: #ff9800; color: white; box-shadow: 0 2px 5px rgba(255,152,0,0.4); }
 
@@ -22,22 +22,25 @@
         
         /* 快速對獎輸入區 */
         .check-area { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
-        .check-input { padding: 12px; font-size: 18px; border: 2px solid #ddd; border-radius: 8px; width: 100%; max-width: 300px; text-align: center; }
+        .check-input { padding: 12px; font-size: 18px; border: 2px solid #ddd; border-radius: 8px; width: 100%; max-width: 350px; text-align: center; }
         .check-btn { padding: 12px 25px; font-size: 18px; background: #4caf50; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .check-btn:hover { background: #45a049; }
 
         /* 彩球視覺設計 */
-        .ball-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
-        .ball { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; color: #333; background: radial-gradient(circle at 15px 15px, #fffde7, #ffd54f); box-shadow: 1px 2px 4px rgba(0,0,0,0.2); }
-        .ball.special { background: radial-gradient(circle at 15px 15px, #ffebee, #ef5350); color: white; }
-        .ball.match { outline: 4px solid #4caf50; transform: scale(1.1); } /* 對中號碼的特效 */
+        .ball-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+        .ball { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; color: #333; background: radial-gradient(circle at 12px 12px, #fffde7, #ffd54f); box-shadow: 1px 2px 4px rgba(0,0,0,0.2); }
+        .ball.special { background: radial-gradient(circle at 12px 12px, #ffebee, #ef5350); color: white; }
+        
+        /* 賓果專用標籤 (大小/單雙) */
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; background: #2196f3; color: white; font-size: 13px; font-weight: bold; margin-left: 5px; }
+        .badge.dark { background: #607d8b; }
 
         /* 開獎歷史列表 */
         .history-item { border-bottom: 1px solid #eee; padding: 15px 0; }
         .history-item:last-child { border-bottom: none; }
-        .draw-info { font-size: 14px; color: #666; margin-bottom: 5px; }
+        .draw-info { font-size: 15px; color: #555; margin-bottom: 8px; font-weight: bold; }
         
-        #loading { text-align: center; color: #666; font-style: italic; display: none; }
+        #loading { text-align: center; color: #666; font-style: italic; display: none; margin: 20px 0; }
     </style>
 </head>
 <body>
@@ -47,7 +50,8 @@
     </header>
 
     <div class="nav-tabs" id="tabs">
-        <button class="tab-btn active" onclick="switchLotto('大樂透')">大樂透</button>
+        <button class="tab-btn active" onclick="switchLotto('賓果賓果')">賓果賓果</button>
+        <button class="tab-btn" onclick="switchLotto('大樂透')">大樂透</button>
         <button class="tab-btn" onclick="switchLotto('威力彩')">威力彩</button>
         <button class="tab-btn" onclick="switchLotto('今彩539')">今彩539</button>
         <button class="tab-btn" onclick="switchLotto('3星彩')">3星彩</button>
@@ -56,8 +60,8 @@
 
     <div class="container">
         <div class="card">
-            <h2 style="margin-top:0; text-align:center;" id="checker-title">快速對獎 - 大樂透</h2>
-            <p style="text-align:center; color:#666; font-size:14px;">請輸入你的號碼（用空格或逗號隔開），系統會自動比對最新一期！</p>
+            <h2 style="margin-top:0; text-align:center;" id="checker-title">快速對獎 - 賓果賓果</h2>
+            <p style="text-align:center; color:#666; font-size:14px;">請輸入你的號碼（用空格隔開），系統會自動比對最新一期！</p>
             <div class="check-area">
                 <input type="text" id="userNumbers" class="check-input" placeholder="例如: 05 12 23 34 45 49">
                 <button class="check-btn" onclick="checkNumbers()">立刻對獎</button>
@@ -68,63 +72,69 @@
         <div class="card">
             <h2 style="margin-top:0;">最新開獎紀錄</h2>
             <div id="loading">資料載入中，請稍候...</div>
-            <div id="history-container">
-                </div>
+            <div id="history-container"></div>
         </div>
     </div>
 
     <script>
-        // --- 設定檔：告訴系統每個彩券的 CSV 檔名與號碼欄位 ---
+        // --- 設定檔：支援所有彩券，包含賓果的特殊格式 ---
         const config = {
+            '賓果賓果': {
+                file: '賓果賓果_2026.csv', // 💡 請確保你上傳的檔案檔名叫這個
+                normalCols: ['開出號碼'],    // 裡面是逗號分隔的 19 顆球
+                specialCol: '超級獎號',
+                extraTags: ['大小', '單雙'] // 顯示大小單雙的專屬欄位
+            },
             '大樂透': {
                 file: '大樂透_2026.csv',
                 normalCols: ['獎號1', '獎號2', '獎號3', '獎號4', '獎號5', '獎號6'],
-                specialCol: '特別號'
+                specialCol: '特別號',
+                extraTags: []
             },
             '威力彩': {
                 file: '威力彩_2026.csv',
                 normalCols: ['第一區1', '第一區2', '第一區3', '第一區4', '第一區5', '第一區6'],
-                specialCol: '第二區'
+                specialCol: '第二區',
+                extraTags: []
             },
             '今彩539': {
                 file: '今彩539_2026.csv',
                 normalCols: ['獎號1', '獎號2', '獎號3', '獎號4', '獎號5'],
-                specialCol: null // 539 沒有特別號
+                specialCol: null,
+                extraTags: []
             },
             '3星彩': {
                 file: '3星彩_2026.csv',
                 normalCols: ['獎號1', '獎號2', '獎號3'],
-                specialCol: null
+                specialCol: null,
+                extraTags: []
             },
             '4星彩': {
                 file: '4星彩_2026.csv',
                 normalCols: ['獎號1', '獎號2', '獎號3', '獎號4'],
-                specialCol: null
+                specialCol: null,
+                extraTags: []
             }
         };
 
-        let currentLotto = '大樂透'; // 預設顯示大樂透
-        let currentData = []; // 存放目前載入的歷史資料
+        let currentLotto = '賓果賓果'; // 預設顯示賓果賓果
+        let currentData = [];
 
-        // 頁面載入時執行
         window.onload = () => {
             loadLottoData(currentLotto);
         };
 
-        // 切換彩券頁籤
         function switchLotto(lottoName) {
             currentLotto = lottoName;
             document.getElementById('checker-title').innerText = `快速對獎 - ${lottoName}`;
-            document.getElementById('check-result').innerHTML = ''; // 清空對獎結果
+            document.getElementById('check-result').innerHTML = ''; 
             
-            // 更新按鈕視覺
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
 
             loadLottoData(lottoName);
         }
 
-        // 讀取 CSV 資料 (連接你的 GitHub lotto 資料夾)
         async function loadLottoData(lottoName) {
             const uiContainer = document.getElementById('history-container');
             const loading = document.getElementById('loading');
@@ -134,7 +144,7 @@
             loading.style.display = 'block';
 
             try {
-                // 從 lotto 資料夾抓取對應的檔案
+                // 💡 去 lotto 資料夾抓資料
                 const response = await fetch(`./lotto/${setting.file}`);
                 if (!response.ok) throw new Error('檔案讀取失敗');
                 const csvText = await response.text();
@@ -143,64 +153,96 @@
                 renderHistory(currentData, setting);
             } catch (error) {
                 console.error(error);
-                uiContainer.innerHTML = `<p style="color:red;">載入 ${setting.file} 失敗。請確認檔案已上傳至 lotto 資料夾！</p>`;
+                uiContainer.innerHTML = `<p style="color:red; font-weight:bold;">無法載入 ${setting.file}！<br>請確認檔案已上傳至 GitHub 的 lotto 資料夾，並且檔名完全一致。</p>`;
             } finally {
                 loading.style.display = 'none';
             }
         }
 
-        // CSV 解析器
+        // CSV 智慧解析器
         function parseCSV(text) {
             const results = [];
             const rows = text.trim().split(/\r?\n/);
             const headers = rows[0].split(','); 
             for (let i = 1; i < rows.length; i++) {
                 if (rows[i].trim() === '') continue;
-                const cols = rows[i].split(',');
+                
+                // 處理引號包覆的逗號 (有些 CSV 輸出時會這樣包裝)
+                let cols = [];
+                let inQuotes = false;
+                let currentVal = '';
+                for(let char of rows[i]) {
+                    if(char === '"') inQuotes = !inQuotes;
+                    else if(char === ',' && !inQuotes) { cols.push(currentVal); currentVal = ''; }
+                    else currentVal += char;
+                }
+                cols.push(currentVal);
+
                 let rowObj = {};
                 headers.forEach((header, index) => {
-                    rowObj[header] = cols[index] ? cols[index].trim() : '';
+                    rowObj[header.trim()] = cols[index] ? cols[index].trim() : '';
                 });
                 results.push(rowObj);
             }
             return results;
         }
 
-        // 渲染歷史開獎畫面
         function renderHistory(data, setting) {
             const container = document.getElementById('history-container');
-            // 只顯示最新 10 期避免畫面太長
-            const displayData = data.slice(0, 10); 
+            const displayData = data.slice(0, 10); // 顯示最新 10 期
 
             displayData.forEach(row => {
                 const item = document.createElement('div');
                 item.className = 'history-item';
                 
-                // 期數與日期資訊
+                // 期數、日期與時間
                 const info = document.createElement('div');
                 info.className = 'draw-info';
-                info.innerText = `第 ${row['期別']} 期 | 開獎日期: ${row['開獎日期']}`;
+                
+                // 檢查是否有開獎時間 (賓果專屬)
+                let timeStr = row['開獎時間'] ? ` ${row['開獎時間']}` : '';
+                // 檢查是否有期別或期數的標題差異
+                let periodVal = row['期別'] || row['期數'] || '未知';
+                let dateVal = row['開獎日期'] || row['日期'] || '未知';
+                
+                info.innerText = `第 ${periodVal} 期 | ${dateVal}${timeStr}`;
+                
+                // 加入大小單雙的徽章標籤
+                setting.extraTags.forEach(tag => {
+                    if(row[tag] && row[tag] !== '－') {
+                        const badge = document.createElement('span');
+                        badge.className = tag === '大小' ? 'badge' : 'badge dark';
+                        badge.innerText = `${tag}: ${row[tag]}`;
+                        info.appendChild(badge);
+                    }
+                });
+
                 item.appendChild(info);
 
                 // 建立彩球
                 const ballRow = document.createElement('div');
                 ballRow.className = 'ball-row';
 
-                // 一般號碼 (黃球)
+                // 一般號碼 (支援陣列拆解)
                 setting.normalCols.forEach(col => {
                     if(row[col]) {
-                        const ball = document.createElement('div');
-                        ball.className = 'ball';
-                        ball.innerText = row[col].padStart(2, '0'); // 補零確保兩碼
-                        ballRow.appendChild(ball);
+                        // 💡 智慧判斷：如果裡面有逗號，就切開變成多顆球 (專為賓果設計)
+                        const nums = row[col].includes(',') ? row[col].split(',') : [row[col]];
+                        nums.forEach(n => {
+                            if(n.trim() === '') return;
+                            const ball = document.createElement('div');
+                            ball.className = 'ball';
+                            ball.innerText = n.trim().padStart(2, '0');
+                            ballRow.appendChild(ball);
+                        });
                     }
                 });
 
-                // 特別號 (紅球)
+                // 特別號/超級獎號
                 if (setting.specialCol && row[setting.specialCol]) {
                     const spBall = document.createElement('div');
                     spBall.className = 'ball special';
-                    spBall.innerText = row[setting.specialCol].padStart(2, '0');
+                    spBall.innerText = row[setting.specialCol].trim().padStart(2, '0');
                     ballRow.appendChild(spBall);
                 }
 
@@ -209,12 +251,10 @@
             });
         }
 
-        // 快速對獎邏輯
         function checkNumbers() {
             if (currentData.length === 0) return;
             
             const input = document.getElementById('userNumbers').value;
-            // 把使用者的輸入轉成陣列，支援空格或逗號
             const userNums = input.replace(/,/g, ' ').split(/\s+/).filter(n => n !== '').map(n => n.padStart(2, '0'));
             
             if (userNums.length === 0) {
@@ -222,31 +262,37 @@
                 return;
             }
 
-            const latestDraw = currentData[0]; // 拿最新一期來對獎
+            const latestDraw = currentData[0]; 
             const setting = config[currentLotto];
+            let periodVal = latestDraw['期別'] || latestDraw['期數'];
             
             let matchedNormal = 0;
             let matchedSpecial = false;
 
-            // 比對一般號碼
+            // 比對一般號碼 (支援陣列拆解)
             setting.normalCols.forEach(col => {
-                const winningNum = latestDraw[col].padStart(2, '0');
-                if (userNums.includes(winningNum)) matchedNormal++;
+                if(latestDraw[col]) {
+                    const nums = latestDraw[col].includes(',') ? latestDraw[col].split(',') : [latestDraw[col]];
+                    nums.forEach(n => {
+                        const winningNum = n.trim().padStart(2, '0');
+                        if (userNums.includes(winningNum)) matchedNormal++;
+                    });
+                }
             });
 
             // 比對特別號
-            if (setting.specialCol) {
-                const specialNum = latestDraw[setting.specialCol].padStart(2, '0');
+            if (setting.specialCol && latestDraw[setting.specialCol]) {
+                const specialNum = latestDraw[setting.specialCol].trim().padStart(2, '0');
                 if (userNums.includes(specialNum)) matchedSpecial = true;
             }
 
             // 顯示結果
             const resultBox = document.getElementById('check-result');
-            let resultText = `🎯 對獎結果 (第 ${latestDraw['期別']} 期)：<br>`;
+            let resultText = `🎯 對獎結果 (最新第 ${periodVal} 期)：<br>`;
             resultText += `對中 <span style="color:#d32f2f; font-size:24px;">${matchedNormal}</span> 個一般號碼`;
             
             if (setting.specialCol) {
-                resultText += matchedSpecial ? '，<span style="color:#4caf50;">特別號命中！</span>' : '，特別號沒中。';
+                resultText += matchedSpecial ? '，<span style="color:#4caf50;">超級獎號命中！</span>' : '，超級獎號沒中。';
             }
             
             resultBox.innerHTML = resultText;
