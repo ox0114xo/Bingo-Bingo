@@ -3,40 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Winner小助手 v9.0 - 終極防呆完整版</title>
+    <title>Winner小助手 - 全能對獎系統</title>
     <style>
         :root { --red: #c62828; --gold: #ffd54f; --bg: #f8f9fa; }
-        body { font-family: 'PingFang TC', sans-serif; background: var(--bg); margin: 0; padding: 0; }
-        header { background: var(--red); color: white; padding: 15px; text-align: center; font-size: 22px; font-weight: bold; }
+        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: var(--bg); margin: 0; padding: 0; color: #333; }
+        header { background: var(--red); color: white; padding: 15px; text-align: center; font-size: 22px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         
-        .nav-tabs { display: flex; overflow-x: auto; background: white; padding: 10px; gap: 8px; border-bottom: 1px solid #ddd; }
-        .tab-btn { white-space: nowrap; padding: 8px 16px; border: 1px solid #ddd; background: #fff; border-radius: 20px; cursor: pointer; font-weight: bold; }
-        .tab-btn.active { background: #ff9800; color: white; border-color: #ff9800; }
+        .nav-tabs { display: flex; overflow-x: auto; background: white; padding: 12px 10px; gap: 8px; border-bottom: 1px solid #ddd; }
+        .tab-btn { white-space: nowrap; padding: 8px 18px; border: 1px solid #ddd; background: #fff; border-radius: 20px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .tab-btn:hover { background: #fff3e0; }
+        .tab-btn.active { background: #ff9800; color: white; border-color: #ff9800; box-shadow: 0 2px 4px rgba(255,152,0,0.3); }
 
-        .container { max-width: 600px; margin: 15px auto; padding: 0 10px; }
-        .card { background: white; border-radius: 12px; padding: 18px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .container { max-width: 650px; margin: 15px auto; padding: 0 12px; }
+        .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         
         /* 賓果控制面板 */
-        .bingo-tools { background: #fff3e0; padding: 15px; border-radius: 10px; display: none; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        .bingo-tools select { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ffb74d; }
+        .bingo-tools { background: #fff3e0; padding: 15px; border-radius: 10px; display: none; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px; border: 1px solid #ffe0b2; }
+        .bingo-tools label { font-size: 13px; font-weight: bold; color: #e65100; margin-bottom: 5px; display: block; }
+        .bingo-tools select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ffb74d; font-size: 15px; background: white; }
+
+        /* 輸入與按鈕 */
+        .input-group { display: flex; flex-direction: column; gap: 12px; }
+        .main-input { padding: 16px; font-size: 20px; text-align: center; border: 2px solid #ddd; border-radius: 8px; outline: none; transition: 0.2s; }
+        .main-input:focus { border-color: #4caf50; }
+        .btn-check { padding: 16px; background: #2e7d32; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 6px rgba(46,125,50,0.2); }
+        .btn-check:active { transform: translateY(2px); box-shadow: none; }
 
         /* 彩球視覺 */
         .ball-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-        .ball { width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; background: radial-gradient(circle at 10px 10px, #fffde7, #ffd54f); box-shadow: 1px 2px 4px rgba(0,0,0,0.15); }
+        .ball { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; background: radial-gradient(circle at 10px 10px, #fffde7, #ffd54f); box-shadow: 1px 2px 4px rgba(0,0,0,0.15); color: #333; }
         .ball.sp { background: radial-gradient(circle at 10px 10px, #ffebee, #ef5350); color: white; border: 2px solid #b71c1c; }
         
-        /* 標籤 */
-        .tag { padding: 3px 8px; border-radius: 4px; font-size: 12px; color: white; font-weight: bold; margin-right: 5px; }
-        .bg-b { background: #1976d2; } .bg-g { background: #607d8b; }
+        /* 標籤 (大小單雙) */
+        .tag { padding: 4px 8px; border-radius: 6px; font-size: 13px; color: white; font-weight: bold; margin-right: 6px; display: inline-block; margin-bottom: 5px; }
+        .bg-b { background: #1976d2; } .bg-g { background: #546e7a; }
 
-        #error-msg { color: #d32f2f; background: #ffebee; padding: 10px; border-radius: 8px; margin-bottom: 15px; display: none; font-size: 14px; font-weight: bold; }
-        #check-res { margin-top: 15px; padding: 15px; border-radius: 10px; text-align: center; display: none; border: 2px dashed #ccc; font-weight: bold; font-size: 18px; }
+        /* 訊息顯示區 */
+        #error-msg { color: #d32f2f; background: #ffebee; padding: 12px; border-radius: 8px; margin-bottom: 15px; display: none; font-size: 15px; font-weight: bold; border-left: 4px solid #d32f2f; }
+        #check-res { margin-top: 15px; padding: 20px; border-radius: 10px; text-align: center; display: none; border: 2px dashed #ccc; font-weight: bold; font-size: 18px; line-height: 1.5; }
         .is-win { background: #e8f5e9; border-color: #4caf50 !important; color: #1b5e20; }
+        
+        .history-item { padding: 15px 0; border-bottom: 1px solid #eee; }
+        .history-item:last-child { border-bottom: none; }
     </style>
 </head>
 <body>
 
-<header>Winner小助手 v9.0</header>
+<header>🏆 Winner小助手</header>
 
 <div class="nav-tabs" id="tabs">
     <button class="tab-btn active" onclick="setGame('賓果賓果')">賓果賓果</button>
@@ -54,39 +67,41 @@
     <div id="error-msg"></div>
 
     <div class="card">
-        <h3 id="cur-title" style="margin-top:0">賓果賓果 對獎</h3>
+        <h3 id="cur-title" style="margin-top:0; color:#d32f2f;">賓果賓果 對獎中心</h3>
         
         <div id="bingo-ui" class="bingo-tools">
-            <div><label style="font-size:12px; font-weight:bold; color:#e65100;">玩法類型</label>
+            <div>
+                <label>玩法類型</label>
                 <select id="b-mode">
-                    <option value="star">一般號碼 (數字)</option>
-                    <option value="bs">猜大小</option>
-                    <option value="oe">猜單雙</option>
+                    <option value="star">一般號碼 (猜數字)</option>
+                    <option value="bs">猜大小 (輸入 大 或 小)</option>
+                    <option value="oe">猜單雙 (輸入 單 或 雙)</option>
                 </select>
             </div>
-            <div><label style="font-size:12px; font-weight:bold; color:#e65100;">對獎期數</label>
+            <div>
+                <label>對獎期數</label>
                 <select id="b-period"></select>
             </div>
         </div>
 
-        <div style="display:flex; flex-direction:column; gap:10px;">
-            <input type="text" id="u-input" style="padding:15px; font-size:20px; text-align:center; border:2px solid #ddd; border-radius:8px;" placeholder="輸入號碼 (空格隔開) / 或填 大、小">
-            <button onclick="doCheck()" style="padding:15px; background:#2e7d32; color:white; border:none; border-radius:8px; font-size:18px; font-weight:bold; cursor:pointer;">立即對獎計算</button>
+        <div class="input-group">
+            <input type="text" id="u-input" class="main-input" placeholder="輸入號碼 (用空格隔開) / 或填 大、小">
+            <button class="btn-check" onclick="doCheck()">立即對獎計算</button>
         </div>
         
         <div id="check-res"></div>
     </div>
 
     <div class="card">
-        <h4 style="margin-top:0">最新開獎歷史</h4>
-        <div id="hist-list">載入中...</div>
+        <h4 style="margin-top:0; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px;">最新開獎歷史</h4>
+        <div id="hist-list" style="color:#666; text-align:center; padding: 20px;">資料載入中，請稍候...</div>
     </div>
 </div>
 
 <script>
-// 💡 終極修正版 CONFIG：威力彩已改回 獎號1~6，完美對接你的 CSV
+// 💡 全彩券設定檔：威力彩已修復為 獎號1~6
 const DB = {
-    '賓果賓果': { file: '賓果賓果_2026.csv', balls: '開出號碼', sp: '超級獎號' },
+    '賓果賓果': { file: '賓果賓果_2026.csv' }, // 賓果採用無差別掃描，不依賴欄位名稱
     '大樂透': { file: '大樂透_2026.csv', balls: ['獎號1','獎號2','獎號3','獎號4','獎號5','獎號6'], sp: '特別號' },
     '威力彩': { file: '威力彩_2026.csv', balls: ['獎號1','獎號2','獎號3','獎號4','獎號5','獎號6'], sp: '第二區' },
     '今彩539': { file: '今彩539_2026.csv', balls: ['獎號1','獎號2','獎號3','獎號4','獎號5'], sp: null },
@@ -104,55 +119,62 @@ window.onload = () => setGame('賓果賓果');
 
 async function setGame(name) {
     curGame = name;
+    
+    // 切換按鈕樣式
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.innerText === name));
-    document.getElementById('cur-title').innerText = name + ' 對獎';
+    
+    // 切換標題與 UI
+    document.getElementById('cur-title').innerText = name + ' 對獎中心';
     document.getElementById('bingo-ui').style.display = (name === '賓果賓果') ? 'grid' : 'none';
     document.getElementById('error-msg').style.display = 'none';
     document.getElementById('check-res').style.display = 'none';
+    document.getElementById('u-input').value = ''; // 清空輸入框
+    
     await refreshData();
 }
 
 async function refreshData() {
     const list = document.getElementById('hist-list');
-    list.innerHTML = '正在讀取資料夾內檔案...';
+    list.innerHTML = '正在讀取 GitHub 檔案...';
 
     try {
         let fileName = encodeURIComponent(DB[curGame].file);
         
-        // 💡 雙重備援：防止大小寫問題
+        // 💡 雙重路徑備援：防止 lotto / Lotto 大小寫抓不到
         let res = await fetch(`./lotto/${fileName}`);
         if (!res.ok) res = await fetch(`./Lotto/${fileName}`);
         
-        if (!res.ok) throw new Error(`找不到檔案: ${DB[curGame].file}`);
+        if (!res.ok) throw new Error(`找不到檔案: ${DB[curGame].file}。請確認有上傳至 lotto 資料夾！`);
         
         const text = await res.text();
-        curData = parseCSV(text);
+        curData = parseSafeCSV(text);
 
         if (curData.length === 0) {
-            throw new Error(`檔案 ${DB[curGame].file} 裡面沒有號碼資料 (只有標題)`);
+            throw new Error(`檔案 [ ${DB[curGame].file} ] 裡面是空的 (沒有號碼資料)`);
         }
         
-        // 填充賓果期數選單
+        // 填充賓果期數下拉選單
         if (curGame === '賓果賓果') {
             const pSel = document.getElementById('b-period');
             pSel.innerHTML = curData.slice(0, 30).map(d => {
-                const val = d['期數'] || d['期別'];
-                return `<option value="${val}">${val}</option>`;
+                // 自動尋找期數 (115開頭的數字)
+                let val = d['期數'] || d['期別'] || d._raw.find(v => v.length >= 8 && v.startsWith('11')) || '未知';
+                return `<option value="${val}">第 ${val} 期</option>`;
             }).join('');
         }
         
         renderUI();
     } catch (e) { 
-        document.getElementById('error-msg').innerText = `❌ ${e.message}`;
+        document.getElementById('error-msg').innerHTML = `⚠️ <b>發生錯誤：</b><br>${e.message}`;
         document.getElementById('error-msg').style.display = 'block';
-        list.innerHTML = '<span style="color:#999">無法顯示歷史紀錄</span>'; 
+        list.innerHTML = '<span style="color:#f44336; font-weight:bold;">無法顯示歷史紀錄，請檢查檔案狀態。</span>'; 
     }
 }
 
-// 🛡️ 專業級 CSV 解析引擎：能處理被引號包圍的逗號數字
-function parseCSV(text) {
+// 🛡️ 防彈級 CSV 解析引擎：把整行資料保留到 _raw 陣列裡
+function parseSafeCSV(text) {
     const lines = text.trim().split(/\r?\n/);
-    if (lines.length <= 1) return [];
+    if (lines.length <= 1) return []; // 只有標題，沒有資料
     
     const headers = lines[0].split(',').map(h => h.trim());
     return lines.slice(1).map(l => {
@@ -163,8 +185,10 @@ function parseCSV(text) {
             else cur += char;
         }
         cells.push(cur.trim());
-        let o = {}; headers.forEach((h, i) => o[h] = cells[i]);
-        return o;
+        
+        let obj = { _raw: cells }; // _raw 保留未經欄位對應的最原始陣列
+        headers.forEach((h, i) => obj[h] = cells[i]);
+        return obj;
     });
 }
 
@@ -172,39 +196,63 @@ function renderUI() {
     const list = document.getElementById('hist-list');
     list.innerHTML = '';
     
-    curData.slice(0, 8).forEach(row => {
+    // 顯示最新 10 期
+    curData.slice(0, 10).forEach(row => {
         const item = document.createElement('div');
-        item.style.padding = '15px 0'; item.style.borderBottom = '1px solid #eee';
+        item.className = 'history-item';
         
-        let balls = [];
+        let balls = [], spVal = '', tags = '';
+        let period = row['期數'] || row['期別'] || '未知';
+        let date = row['日期'] || row['開獎日期'] || '';
+
         if (curGame === '賓果賓果') {
-            // 🛡️ 暴力破解抓球法：不管欄位叫啥，只要內容有一堆逗號就認定是賓果號碼
-            let bingoNums = row['開出號碼'] || Object.values(row).find(val => typeof val === 'string' && val.includes(',')) || '';
-            balls = bingoNums.split(/[ ,]+/).filter(n => n !== '');
+            // 🎯 賓果暴力破解法：不管欄位錯亂到什麼程度，只要是 1~2 位數的純數字就抓！
+            let allNums = [];
+            row._raw.forEach(cell => {
+                // 如果儲存格裡面有逗號，先切開
+                cell.split(/[ ,]+/).forEach(part => {
+                    // 如果是 1 到 2 碼的純數字，就當作是號碼
+                    if (/^\d{1,2}$/.test(part)) {
+                        allNums.push(part);
+                    }
+                });
+            });
+            
+            // 確保最多只取 20 顆球
+            allNums = allNums.slice(0, 20);
+            
+            // 前 19 顆是一般號碼，最後 1 顆是超級獎號
+            balls = allNums.slice(0, 19);
+            spVal = allNums.length >= 20 ? allNums[19] : '';
+
+            // 暴力掃描 大小單雙 (直接看整行文字有沒有出現這些字)
+            let rawStr = row._raw.join('');
+            let bs = rawStr.includes('大') ? '大' : (rawStr.includes('小') ? '小' : '－');
+            let oe = rawStr.includes('單') ? '單' : (rawStr.includes('雙') ? '雙' : (rawStr.includes('和') ? '和' : '－'));
+            tags = `<span class="tag bg-b">大小: ${bs}</span><span class="tag bg-g">單雙: ${oe}</span>`;
+            
+            // 如果期數和日期抓不到，就用掃描的
+            if (period === '未知') period = row._raw.find(v => v.length >= 8 && v.startsWith('11')) || '未知';
+            if (date === '') date = row._raw.find(v => v.includes('/')) || '';
+
         } else {
+            // 其他正常彩券，乖乖按照欄位抓
             const keys = Array.isArray(DB[curGame].balls) ? DB[curGame].balls : [DB[curGame].balls];
             keys.forEach(k => { if(row[k]) balls.push(row[k]); });
+            spVal = DB[curGame].sp ? (row[DB[curGame].sp] || row['第二區'] || '') : '';
         }
 
+        // 畫出一般黃球
         let ballHtml = balls.map(n => `<div class="ball">${n.padStart(2,'0')}</div>`).join('');
         
-        // 特別號/第二區
-        const spKey = DB[curGame].sp;
-        let spVal = spKey ? (row[spKey] || row['第二區'] || '') : '';
+        // 畫出紅色特別號/第二區
         if (spVal) {
             ballHtml += `<div class="ball sp">${spVal.padStart(2,'0')}</div>`;
         }
 
-        // 賓果專屬標籤
-        let tags = '';
-        if (curGame === '賓果賓果') {
-            tags = `<span class="tag bg-b">大小: ${row['大小']||'－'}</span><span class="tag bg-g">單雙: ${row['單雙']||'－'}</span>`;
-        }
-
-        let period = row['期數'] || row['期別'] || '未知';
-        let date = row['日期'] || row['開獎日期'] || '';
-
-        item.innerHTML = `<div style="font-weight:bold; margin-bottom:5px;">第 ${period} 期 | ${date} ${tags}</div><div class="ball-row">${ballHtml}</div>`;
+        item.innerHTML = `<div style="font-weight:bold; margin-bottom:8px; font-size:15px;">第 ${period} 期 <span style="color:#888; font-weight:normal; margin-left:5px; font-size:13px;">${date}</span></div>
+                          <div style="margin-bottom:5px;">${tags}</div>
+                          <div class="ball-row">${ballHtml}</div>`;
         list.appendChild(item);
     });
 }
@@ -216,29 +264,43 @@ function doCheck() {
     
     if (!input) {
         resBox.style.display = 'block'; resBox.className = '';
-        resBox.innerHTML = '⚠️ 請先輸入號碼或大小單雙';
+        resBox.innerHTML = '⚠️ 請先輸入號碼或預測 (例如: 05 12 或是 大)';
         return;
     }
 
-    const pVal = document.getElementById('b-period').value;
-    const draw = (curGame === '賓果賓果') ? curData.find(d => (d['期數'] || d['期別']) === pVal) : curData[0];
+    // 取得要對獎的那一期資料
+    let targetPeriod = '';
+    let draw = null;
+    
+    if (curGame === '賓果賓果') {
+        targetPeriod = document.getElementById('b-period').value;
+        draw = curData.find(d => {
+            let p = d['期數'] || d['期別'] || d._raw.find(v => v.length >= 8 && v.startsWith('11'));
+            return p === targetPeriod;
+        });
+    } else {
+        draw = curData[0]; // 其他彩券預設對最新一期
+        targetPeriod = draw['期數'] || draw['期別'] || '最新';
+    }
+
     if (!draw) return;
 
-    let winBalls = [];
-    let spBall = '';
+    let winBalls = [], spBall = '';
 
+    // 抓出中獎號碼
     if (curGame === '賓果賓果') {
-        let bingoNums = draw['開出號碼'] || Object.values(draw).find(val => typeof val === 'string' && val.includes(',')) || '';
-        winBalls = bingoNums.split(/[ ,]+/).map(n => n.trim().padStart(2,'0'));
-        spBall = (draw['超級獎號'] || '').trim().padStart(2,'0');
-        if (spBall) winBalls.push(spBall);
+        let allNums = [];
+        draw._raw.forEach(c => c.split(/[ ,]+/).forEach(p => { if (/^\d{1,2}$/.test(p)) allNums.push(p); }));
+        allNums = allNums.slice(0, 20);
+        winBalls = allNums.slice(0, 19).map(n => n.padStart(2,'0'));
+        spBall = allNums.length >= 20 ? allNums[19].padStart(2,'0') : '';
     } else {
         const keys = Array.isArray(DB[curGame].balls) ? DB[curGame].balls : [DB[curGame].balls];
         keys.forEach(k => { if(draw[k]) winBalls.push(draw[k].padStart(2,'0')); });
         spBall = DB[curGame].sp ? (draw[DB[curGame].sp] || draw['第二區'] || '').padStart(2,'0') : '';
-        if (spBall) winBalls.push(spBall);
     }
 
+    // 比對使用者輸入
     const uBalls = input.split(/[ ,]+/).map(n => n.padStart(2,'0'));
     const matched = uBalls.filter(n => winBalls.includes(n));
     
@@ -246,19 +308,30 @@ function doCheck() {
     resBox.className = matched.length > 0 ? 'is-win' : '';
     
     if (curGame === '賓果賓果') {
+        let rawStr = draw._raw.join('');
+        let bs = rawStr.includes('大') ? '大' : (rawStr.includes('小') ? '小' : '－');
+        let oe = rawStr.includes('單') ? '單' : (rawStr.includes('雙') ? '雙' : (rawStr.includes('和') ? '和' : '－'));
+        
         const mode = document.getElementById('b-mode').value;
         if (mode === 'bs') {
-            const ok = input.includes(draw['大小'] || '');
-            resBox.innerHTML = `本期結果：<b>${draw['大小'] || '未知'}</b><br>${ok ? '🎊 猜中了！' : '❌ 沒中'}`;
+            resBox.className = (input.includes(bs) && bs !== '－') ? 'is-win' : '';
+            resBox.innerHTML = `對獎期數：第 ${targetPeriod} 期<br>開獎結果：<span style="color:#d32f2f; font-size:24px;">${bs}</span><br>${input.includes(bs) && bs !== '－' ? '🎊 恭喜猜中！' : '❌ 沒猜中'}`;
         } else if (mode === 'oe') {
-            const ok = input.includes(draw['單雙'] || '');
-            resBox.innerHTML = `本期結果：<b>${draw['單雙'] || '未知'}</b><br>${ok ? '🎊 猜中了！' : '❌ 沒中'}`;
+            resBox.className = (input.includes(oe) && oe !== '－') ? 'is-win' : '';
+            resBox.innerHTML = `對獎期數：第 ${targetPeriod} 期<br>開獎結果：<span style="color:#d32f2f; font-size:24px;">${oe}</span><br>${input.includes(oe) && oe !== '－' ? '🎊 恭喜猜中！' : '❌ 沒猜中'}`;
         } else {
-            resBox.innerHTML = `對中 <b>${matched.length}</b> 顆號碼！<br>超級獎號命中：${uBalls.includes(spBall) ? '✅ 是' : '❌ 否'}`;
+            let spHit = uBalls.includes(spBall) && spBall ? '✅ 命中' : '❌ 沒中';
+            resBox.innerHTML = `對獎期數：第 ${targetPeriod} 期<br>對中 <span style="color:#d32f2f; font-size:24px;">${matched.length}</span> 顆號碼<br>超級獎號：${spHit}`;
         }
     } else {
-        let periodStr = draw['期數'] || draw['期別'] || '最新';
-        resBox.innerHTML = `第 ${periodStr} 期：對中 <b>${matched.length}</b> 顆號碼！`;
+        // 其他彩券加上特別號命中提示
+        let spHitMsg = '';
+        if (spBall) {
+            let spHit = uBalls.includes(spBall);
+            spHitMsg = `<br>${DB[curGame].sp}：${spHit ? '✅ 命中' : '❌ 沒中'}`;
+            if (spHit) resBox.className = 'is-win';
+        }
+        resBox.innerHTML = `第 ${targetPeriod} 期<br>對中 <span style="color:#d32f2f; font-size:24px;">${matched.length}</span> 顆號碼${spHitMsg}`;
     }
 }
 </script>
